@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Python runner</title>
+<style>
+  body { margin:0; background:#0b0f0d; color:#c9f5dc; font:13px/1.5 Consolas, ui-monospace, monospace; }
+  #o { padding:12px; white-space:pre-wrap; }
+  .e { color:#ff6b7a; }
+  .m { color:#7f9088; }
+</style>
+</head>
+<body>
+<div id="o"><span class="m">รอโค้ด…</span></div>
+<script src="https://cdn.jsdelivr.net/npm/pyodide@0.26.4/pyodide.js"></script>
+<script>
+// Served from its own origin (bridge port + 1) so Pyodide works, and generated code cannot call the chat API.
+const o = document.getElementById('o');
+const line = (t, c) => { const s = document.createElement('span'); if (c) s.className = c; s.textContent = t + '\n'; o.appendChild(s); };
+let pyReady = null;
+addEventListener('message', async e => {
+  const chat = `${location.protocol}//${location.hostname}:${+location.port - 1}`;
+  if (e.origin !== chat || typeof e.data?.code !== 'string') return;   // only the chat page may send code
+  o.replaceChildren(); line('กำลังโหลด Python (ครั้งแรกใช้เวลาสักครู่)…', 'm');
+  try {
+    pyReady ??= loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/npm/pyodide@0.26.4/' });
+    const py = await pyReady;
+    o.replaceChildren();
+    py.setStdout({ batched: s => line(s) });
+    py.setStderr({ batched: s => line(s, 'e') });
+    await py.loadPackagesFromImports(e.data.code);
+    await py.runPythonAsync(e.data.code);
+    line('\n[จบการทำงาน]', 'm');
+  } catch (err) { line(String(err), 'e'); }
+});
+</script>
+</body>
+</html>

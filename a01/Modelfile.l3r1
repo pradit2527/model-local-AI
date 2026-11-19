@@ -1,0 +1,16 @@
+FROM D:\ai-midel\models\DAN-L3-R1-8B.Q4_K_M.gguf
+
+# The fine-tune uses ChatML (see tokenizer_config.json of UnfilteredAI/DAN-L3-R1-8B)
+TEMPLATE """{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{- range .Messages }}<|im_start|>{{ .Role }}
+{{ .Content }}<|im_end|>
+{{ end }}<|im_start|>assistant
+"""
+
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|im_start|>"
+PARAMETER stop "<｜end▁of▁sentence｜>"
+PARAMETER temperature 0.6
+PARAMETER top_p 0.95
+PARAMETER num_ctx 8192

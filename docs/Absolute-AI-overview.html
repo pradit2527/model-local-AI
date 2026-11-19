@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><title>Absolute AI - ภาพรวมโปรเจกต์</title>
+<style>
+@page { size: A4; margin: 14mm 15mm 14mm 15mm; }
+* { box-sizing: border-box; }
+body { font-family: "Leelawadee UI", "Tahoma", sans-serif; font-size: 10pt; line-height: 1.45; color: #1b1f23; margin: 0; }
+h1 { font-size: 20pt; margin: 0; letter-spacing: .5px; }
+h2 { font-size: 12.5pt; margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 2px solid #18a058; color: #0f5132; }
+.head { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; border-bottom: 1px solid #ccd; }
+.head img { width: 54px; height: 54px; }
+.sub { color: #555; font-size: 10pt; }
+.meta { margin-left: auto; text-align: right; font-size: 8.5pt; color: #666; }
+p { margin: 4px 0; }
+ul, ol { margin: 4px 0; padding-left: 20px; }
+li { margin: 2px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 4px 0; }
+th, td { border: 1px solid #c9d1d9; padding: 4px 6px; vertical-align: top; text-align: left; }
+th { background: #eef6f1; }
+code { font-family: Consolas, monospace; font-size: 8.8pt; background: #f2f4f6; padding: 0 3px; border-radius: 3px; }
+.arch { display: flex; align-items: center; gap: 8px; background: #0d1117; color: #d7f5e0; padding: 10px; border-radius: 6px; font-size: 9pt; margin-top: 6px; }
+.arch .box { flex: 1; border: 1px solid #2ea043; border-radius: 5px; padding: 6px 8px; }
+.arch .box b { color: #56d364; display: block; margin-bottom: 2px; }
+.arch .box code { background: #1f2a22; color: #a5f3bf; }
+.arch .link { text-align: center; color: #56d364; font-size: 8.5pt; line-height: 1.3; white-space: nowrap; }
+.arch .link span { color: #9aa5b1; font-size: 8pt; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ok { color: #18794e; font-weight: 600; } .run { color: #b35900; font-weight: 600; } .todo { color: #8250df; font-weight: 600; }
+.note { background: #fff8e6; border-left: 3px solid #e0a000; padding: 5px 8px; font-size: 9pt; margin-top: 6px; }
+.brk { break-before: page; }
+</style></head><body>
+
+<div class="head">
+  <img src="../logo.svg">
+  <div><h1>Absolute AI</h1><div class="sub">ระบบ AI ส่วนตัวแบบรันเองทั้งหมด: แชท เขียนโค้ด ค้นข้อมูล สร้างรูปและวิดีโอ</div></div>
+  <div class="meta">โฟลเดอร์ D:\ai-midel<br>GPU: A01 (RTX 4060 Ti 8GB)<br>อัปเดต 19 พ.ย. 2026</div>
+</div>
+
+<h2>1. ภาพรวม</h2>
+<p>Absolute AI รวมหลายโมเดลไว้ในหน้าแชทเดียว ระบบจะเลือกโมเดลให้อัตโนมัติตามงาน เช่น เขียนโค้ด อ่านรูป หรือตอบภาษาไทย
+โมเดลหลักมาจาก UnfilteredAI (DAN) บน Hugging Face และกำลัง fine-tune เพิ่มให้เก่งเรื่องโค้ด เรียกใช้เครื่องมือได้ และรองรับหลายภาษา
+ทุกอย่างรันบนเครื่องของเราเอง ไม่ส่งข้อมูลไปคลาวด์ ยกเว้นการค้นเว็บ</p>
+
+<div class="arch">
+  <div class="box"><b>โน้ตบุ๊ก (ผู้ใช้)</b>
+    <div>เบราว์เซอร์ → <code>chat.html</code></div>
+    <div>Bridge (Node) <code>:8765</code> — เลือกโมเดล, Skills, MCP, ค้นเว็บ, Tools, ประวัติแชท</div>
+    <div>Python runner <code>:8766</code> (Pyodide)</div></div>
+  <div class="link">SSH tunnel<br><span>11500 / 8188</span><br>───────▶<br><span>ต่อใหม่เองเมื่อหลุด</span></div>
+  <div class="box"><b>A01 · 10.0.1.183 (GPU)</b>
+    <div>Ollama <code>:11500</code> — โมเดลแชท / โค้ด / อ่านรูป</div>
+    <div>ComfyUI <code>:8188</code> ใน WSL — สร้างรูป / วิดีโอ</div>
+    <div>WSL2 Ubuntu — เทรน QLoRA (Unsloth)</div></div>
+</div>
+
+<h2>2. โมเดลในระบบ</h2>
+<table>
+<tr><th style="width:28%">โมเดล</th><th style="width:22%">ใช้ทำอะไร</th><th>หมายเหตุ</th></tr>
+<tr><td><code>absolute-ai</code></td><td>โมเดลหลัก (ตัวที่เทรนเอง)</td><td>DAN-L3-R1-8B + QLoRA ด้วยข้อมูลโค้ด, การเรียก tool, คณิต, ไทย และอีกหลายภาษา <span class="run">กำลังเทรน</span></td></tr>
+<tr><td><code>dan-l3-r1-8b</code>, <code>dan-qwen3</code></td><td>แชททั่วไป</td><td>โมเดลตั้งต้นจาก UnfilteredAI</td></tr>
+<tr><td><code>qwen3.6:35b-a3b-coding</code></td><td>เขียนโปรแกรม, vibe code</td><td>MoE 35B (ใช้งานจริงครั้งละ 3B) ใช้เมื่อเลือก skill Coding</td></tr>
+<tr><td><code>gemma4:12b-it-qat</code></td><td>อ่านรูปภาพ/เอกสาร</td><td>ใช้เมื่อแนบรูป</td></tr>
+<tr><td><code>typhoon</code></td><td>ภาษาไทย</td><td>ใช้เมื่อถามเป็นภาษาไทย</td></tr>
+<tr><td>FLUX.1-schnell / Wan2.2-TI2V-5B</td><td>สร้างรูป / วิดีโอ</td><td>ผ่าน ComfyUI; วิดีโอทำได้ทั้งจากข้อความและจากรูป (โหมด fast 960×544, HD 1280×704)</td></tr>
+<tr><td><code>qwen2.5-coder:1.5b</code>, <code>nomic-embed</code></td><td>VS Code</td><td>เติมโค้ดอัตโนมัติ และค้นโค้ดในโปรเจกต์ (ผ่าน Continue)</td></tr>
+</table>
+
+<h2>3. ความสามารถ</h2>
+<div class="two">
+<ul>
+<li><b>หน้าแชท 3 ส่วน:</b> A = ประวัติแชท, ตรงกลาง = แชท, B = ผลลัพธ์ (โค้ด / หน้าจอ / รูป / วิดีโอ) และลากเส้นแบ่งปรับขนาดได้</li>
+<li><b>รันผลลัพธ์ทันที</b> แบบ Claude Artifacts รองรับ HTML, React, Python (Pyodide) และ Mermaid</li>
+<li><b>Mockup อัตโนมัติ:</b> เสนอไอเดียแล้ว แถบ B จะแสดงหน้าจอตัวอย่างให้เอง</li>
+<li><b>ปุ่ม +</b> แนบรูป, PDF, Word, Excel, CSV และอ่านตัวอักษรจากรูป (OCR) ได้ทั้งไทย อังกฤษ และจีน</li>
+<li><b>Skills เลือกได้หลายตัว:</b> Coding, Vibe Code, VS Code, Database, Design, System Analysis</li>
+</ul>
+<ul>
+<li><b>MCP:</b> filesystem (โฟลเดอร์ workspace) และ DBHub (SQLite, เพิ่ม Postgres/MySQL/SQL Server ได้)</li>
+<li><b>Tools:</b> ค้นเว็บ, เปิดอ่าน URL, เครื่องคิดเลข, เวลาปัจจุบัน, สร้างรูป/วิดีโอ และรันคำสั่ง (ต้องกดอนุมัติก่อน)</li>
+<li><b>โหมดแม่นยำ:</b> อ้างอิงแหล่งข้อมูลจริง และคำนวณด้วยเครื่องมือแทนการเดา</li>
+<li><b>ภาษา:</b> หน้าเว็บมี 5 ภาษา (ไทย/อังกฤษ/จีน/ญี่ปุ่น/เกาหลี) และเลือกภาษาคำตอบได้ 40 ภาษา</li>
+<li><b>ธีม:</b> สว่าง/มืด, โลโก้แนว hacker, ลายน้ำ "AI สายดาร์ก", แถบเลื่อนบางแบบ Claude</li>
+</ul>
+</div>
+
+<h2 class="brk">4. ขั้นตอนที่ทำไปแล้ว</h2>
+<ol>
+<li><b>คัดเลือกและดาวน์โหลด</b> โมเดลกับ datasets ของ UnfilteredAI จาก Hugging Face ตรวจไฟล์ด้วย sha256</li>
+<li><b>ติดตั้ง Ollama บน A01</b> ที่พอร์ต 11500 ซึ่งไม่ชนกับ NVIDIA AI Router ที่ใช้ 11434/11435 แล้วเชื่อมจากโน้ตบุ๊กผ่าน SSH tunnel โดยไม่ต้องเปิดไฟร์วอลล์</li>
+<li><b>สร้าง Bridge และหน้าแชท</b> รวมระบบเลือกโมเดล, Skills, MCP, ค้นเว็บ, tools, ประวัติแชท และแผงผลลัพธ์</li>
+<li><b>วัดผลตั้งต้น</b> ของ dan-l3-r1-8b: GSM8K 76.0, ARC 71.0, ThaiExam 18.0, HumanEval 42.7</li>
+<li><b>เตรียมข้อมูลเทรน</b> รวมราว 15,000 ตัวอย่าง: โค้ด, การเรียก tool (Hermes), คณิต, ไทย, Aya หลายภาษา, งาน design/system analysis และตัวตน "Absolute AI"</li>
+<li><b>ย้ายงาน PyTorch ไป WSL2</b> เพราะ Smart App Control บน A01 บล็อก DLL ของ CUDA ฝั่ง Windows ทั้งการเทรนและ ComfyUI จึงรันใน Ubuntu</li>
+<li><b>ติดตั้งระบบสื่อ</b> ได้แก่ Gemma4, Typhoon, Qwen3.6 Coding, ComfyUI + FLUX + Wan2.2 <span class="ok">เสร็จแล้ว</span></li>
+<li><b>ตั้งค่า VS Code (Continue)</b> ให้ชี้ไปที่โมเดลบน A01 พร้อมสคริปต์ติดตั้ง</li>
+</ol>
+
+<h2>5. สถานะตอนนี้</h2>
+<table>
+<tr><th style="width:30%">งาน</th><th style="width:16%">สถานะ</th><th>รายละเอียด</th></tr>
+<tr><td>หน้าแชท + Bridge + MCP</td><td class="ok">ใช้งานได้</td><td>tunnel ต่อใหม่เองเมื่อหลุด (ภายใน ~2 วินาที)</td></tr>
+<tr><td>เทรน absolute-ai (QLoRA)</td><td class="run">50% (440/878)</td><td>เหลือราว 1 ชม. 40 นาที จากนั้น merge และแปลงเป็น q4_K_M ให้ Ollama อัตโนมัติ</td></tr>
+<tr><td>สร้างรูป/วิดีโอ</td><td class="run">รอ GPU ว่าง</td><td>ติดตั้งเสร็จแล้ว จะเปิด ComfyUI หลังเทรนเสร็จ</td></tr>
+<tr><td>วัดผล absolute-ai</td><td class="todo">ถัดไป</td><td>จะใช้เป็นโมเดลหลักก็ต่อเมื่อคะแนนดีกว่า baseline</td></tr>
+</table>
+<div class="note">ระหว่างเทรน Ollama บน A01 จะใช้ CPU แทน GPU ทำให้แชทตอบช้ากว่าปกติ</div>
+
+<h2>6. วิธีใช้งาน</h2>
+<table>
+<tr><th style="width:38%">คำสั่ง (PowerShell ใน D:\ai-midel)</th><th>ผลลัพธ์</th></tr>
+<tr><td><code>.\a01.ps1</code></td><td>เปิดเซิร์ฟเวอร์บน A01, เปิด tunnel และหน้าแชท http://127.0.0.1:8765</td></tr>
+<tr><td><code>.\a01.ps1 -Deploy</code></td><td>คัดลอกสคริปต์ล่าสุดในโฟลเดอร์ a01\ ไปที่ A01 ก่อนเปิดระบบ</td></tr>
+<tr><td><code>.\a01.ps1 -Stop</code></td><td>ปิด tunnel, Bridge, Ollama และ ComfyUI บน A01</td></tr>
+<tr><td><code>.\run.ps1 -Web</code></td><td>รันโมเดลเล็กบนโน้ตบุ๊กเอง (ไม่ใช้ A01)</td></tr>
+<tr><td><code>.\vscode\setup-vscode.ps1</code></td><td>ติดตั้ง Continue และตั้งค่า VS Code ให้ใช้โมเดลบน A01</td></tr>
+<tr><td><code>python -I eval\eval.py --model absolute-ai</code></td><td>วัดคะแนนโมเดลแล้วเทียบกับ baseline</td></tr>
+</table>
+
+<h2>7. สิ่งที่ผู้ใช้ควรทำเพิ่ม</h2>
+<ul>
+<li><b>เปลี่ยน SSH key ของ A01</b> เพราะ private key เคยถูกวางในแชท ให้สร้าง key ใหม่ แล้วลบ key เก่าออกจาก <code>authorized_keys</code></li>
+<li><b>ใส่ API key ของ Tavily หรือ Brave</b> ใน <code>bridge\keys.json</code> เพื่อค้นได้ทั้งเว็บ ถ้าไม่ใส่ ระบบจะค้นจาก Wikipedia อย่างเดียว</li>
+<li><b>ระวังคำตอบของโมเดล DAN:</b> ไม่มีตัวกรอง จึงควรตรวจคำตอบก่อนนำไปใช้ โดยเฉพาะโค้ดหรือคำสั่งที่จะรันจริง</li>
+</ul>
+
+</body></html>

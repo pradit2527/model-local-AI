@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Absolute AI">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#39ff88"/>
+      <stop offset="1" stop-color="#0fbf6a"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- hexagon frame -->
+  <path d="M32 2 58 17v30L32 62 6 47V17Z" fill="#0b0f0d" stroke="url(#g)" stroke-width="2.5"/>
+  <!-- hooded figure -->
+  <path d="M32 11c-9.5 0-15 7.5-15 17v6c0 3-2 6-4 8.5 4 3 11 5 19 5s15-2 19-5c-2-2.5-4-5.5-4-8.5v-6c0-9.5-5.5-17-15-17Z" fill="#141a17" stroke="#2a3a31" stroke-width="1.2"/>
+  <!-- face void -->
+  <path d="M32 19c-6 0-9.5 4.8-9.5 10.5 0 5 3.8 9.5 9.5 9.5s9.5-4.5 9.5-9.5C41.5 23.8 38 19 32 19Z" fill="#030504"/>
+  <!-- glowing eyes -->
+  <g filter="url(#glow)" fill="url(#g)">
+    <path d="M25.5 28.5h5l-1 2h-4Z"/>
+    <path d="M33.5 28.5h5v2h-4Z"/>
+  </g>
+  <!-- terminal prompt -->
+  <g filter="url(#glow)" stroke="url(#g)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 51.5l3.5-2.5-3.5-2.5"/>
+    <path d="M30 51.5h9"/>
+  </g>
+</svg>

@@ -1,0 +1,59 @@
+# Continue (VS Code extension) config for Absolute AI.
+# Copy to %USERPROFILE%\.continue\config.yaml  (or run D:\ai-midel\vscode\setup-vscode.ps1).
+# Needs the SSH tunnel to A01: run D:\ai-midel\a01.ps1 -NoWeb first (Ollama on http://127.0.0.1:11500).
+name: Absolute AI
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Absolute AI Coder (Qwen3.6 35B-A3B)
+    provider: ollama
+    model: qwen3.6:35b-a3b-coding
+    apiBase: http://127.0.0.1:11500
+    roles: [chat, edit, apply]
+    capabilities: [tool_use]
+    defaultCompletionOptions:
+      contextLength: 32768
+  - name: Absolute AI (general, no limits)
+    provider: ollama
+    model: absolute-ai
+    apiBase: http://127.0.0.1:11500
+    roles: [chat, edit]
+  - name: DAN-L3-R1-8B (current base)
+    provider: ollama
+    model: dan-l3-r1-8b
+    apiBase: http://127.0.0.1:11500
+    roles: [chat, edit]
+  - name: Gemma 4 12B (multilingual + images)
+    provider: ollama
+    model: gemma4:12b-it-qat
+    apiBase: http://127.0.0.1:11500
+    roles: [chat]
+    capabilities: [image_input]
+  - name: Autocomplete (Qwen2.5-Coder 1.5B)
+    provider: ollama
+    model: qwen2.5-coder:1.5b-base
+    apiBase: http://127.0.0.1:11500
+    roles: [autocomplete]
+  - name: Code search embeddings
+    provider: ollama
+    model: nomic-embed-text
+    apiBase: http://127.0.0.1:11500
+    roles: [embed]
+
+context:
+  - provider: code
+  - provider: docs
+  - provider: diff
+  - provider: terminal
+  - provider: problems
+  - provider: folder
+  - provider: codebase
+
+mcpServers:
+  - name: database
+    command: npx
+    args: ["-y", "@bytebase/dbhub@1.5.1", "--dsn", "sqlite:///D:/ai-midel/workspace/data/app.db"]
+  - name: files
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem@2.1.0", "D:\\ai-midel\\workspace"]

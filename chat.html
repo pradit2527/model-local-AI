@@ -1,0 +1,950 @@
+<!doctype html>
+<html lang="th" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Absolute AI</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<style>
+  :root, [data-theme="dark"] {
+    --bg:#070a09; --panel:#0e1311; --panel2:#131a17; --text:#d6e2dc; --muted:#7f9088; --line:#1e2924;
+    --accent:#39ff88; --accent-dim:#1f9e57; --accent-soft:rgba(57,255,136,.08); --ink:#03120a; --danger:#ff5266;
+    --user:#0f1f18; --user-line:#173326; --code:#050807; --codetext:#c9f5dc; --head:rgba(7,10,9,.88); --bubble:rgba(14,19,17,.92);
+    --wm:.05; --wm-text:.045; --scroll:rgba(255,255,255,.16); --scroll-hover:rgba(255,255,255,.3);
+  }
+  [data-theme="light"] {
+    --bg:#f4f6f5; --panel:#ffffff; --panel2:#eef2f0; --text:#16201b; --muted:#5b6a63; --line:#d9e1dd;
+    --accent:#0f9d58; --accent-dim:#0f9d58; --accent-soft:rgba(15,157,88,.10); --ink:#ffffff; --danger:#d93044;
+    --user:#e3f3ea; --user-line:#c3e3d1; --code:#f6f8f7; --codetext:#16301f; --head:rgba(244,246,245,.9); --bubble:rgba(255,255,255,.95);
+    --wm:.06; --wm-text:.06; --scroll:rgba(0,0,0,.16); --scroll-hover:rgba(0,0,0,.3);
+  }
+  /* Claude-style scrollbars: thin, no arrows, invisible until you hover the scrolling area */
+  #log, #chats, .pb pre, .pb .mediaview, .tiles, .skillmenu, .settings, textarea, pre {
+    scrollbar-width:thin; scrollbar-color:transparent transparent; transition:scrollbar-color .2s;
+  }
+  #log:hover, #chats:hover, .pb pre:hover, .pb .mediaview:hover, .tiles:hover, .skillmenu:hover, .settings:hover, textarea:hover, pre:hover {
+    scrollbar-color:var(--scroll) transparent;
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 system-ui, "Segoe UI", "Noto Sans Thai", "Noto Sans SC", sans-serif; display:flex; flex-direction:column; overflow:hidden; }
+  button, select, input, textarea { font:inherit; color:inherit; }
+
+  .watermark { position:fixed; inset:0; pointer-events:none; z-index:0;
+    background: radial-gradient(ellipse at 50% 45%, var(--accent-soft), transparent 60%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><g font-family='monospace' font-size='13' fill='%2339a86b' fill-opacity='0.5'><text x='8' y='20'>01101 00110</text><text x='40' y='62'>1001 0111 01</text><text x='4' y='104'>0x41 0x49</text><text x='60' y='146'>110 0101 1</text><text x='18' y='188'>&lt;/&gt; 0110</text></g></svg>"); }
+  .watermark::before { content:''; position:absolute; inset:0; background:var(--bg); opacity:calc(1 - var(--wm-text) * 2); }
+  .watermark img { position:absolute; left:50%; top:50%; width:min(520px,70vw); transform:translate(-50%,-46%); opacity:var(--wm); }
+
+  header { position:relative; z-index:3; padding:8px 12px; border-bottom:1px solid var(--line); background:var(--head); backdrop-filter:blur(6px); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .brand { display:flex; align-items:center; gap:8px; margin-right:4px; }
+  .brand img { width:32px; height:32px; }
+  .brand h1 { font:700 17px/1 system-ui, sans-serif; margin:0; white-space:nowrap; }
+  .brand h1 b { color:var(--accent); }
+  select, .field { padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--panel); font-size:14px; max-width:220px; }
+  .toggle { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border:1px solid var(--line); border-radius:999px; background:var(--panel); color:var(--muted); font-size:13px; cursor:pointer; user-select:none; white-space:nowrap; }
+  .toggle input { display:none; }
+  .toggle:has(input:checked) { color:var(--accent); border-color:var(--accent-dim); background:var(--accent-soft); }
+  .status { font-size:12px; color:var(--muted); white-space:nowrap; }
+  .spacer { flex:1; }
+  .icon-btn { display:inline-grid; place-items:center; min-width:34px; height:34px; padding:0 8px; border:1px solid var(--line); border-radius:8px; background:var(--panel); cursor:pointer; font-size:15px; }
+  .icon-btn:hover, .secondary:hover { border-color:var(--accent-dim); }
+  .only-narrow { display:none; }
+  .settings { position:absolute; right:12px; top:100%; margin-top:6px; width:min(380px,calc(100vw - 24px)); padding:14px; border:1px solid var(--line); border-radius:10px; background:var(--panel); box-shadow:0 12px 32px rgba(0,0,0,.35); display:none; flex-direction:column; gap:10px; z-index:20; }
+  .settings.open { display:flex; }
+  .settings label { font-size:13px; color:var(--muted); display:flex; flex-direction:column; gap:4px; }
+  .settings textarea, .settings select { width:100%; max-width:none; padding:8px; border:1px solid var(--line); border-radius:6px; background:var(--panel2); }
+  .settings textarea { height:90px; resize:vertical; }
+
+  .main { position:relative; z-index:1; flex:1; display:flex; min-height:0; }
+  /* A: chat history */
+  #side { width:250px; flex:none; display:flex; flex-direction:column; border-right:1px solid var(--line); background:var(--head); min-height:0; }
+  #side .top { padding:10px; }
+  #newChat { width:100%; padding:8px 10px; border:1px solid var(--accent-dim); border-radius:8px; background:var(--accent-soft); color:var(--accent); font-weight:600; cursor:pointer; }
+  #side h2 { margin:6px 12px 4px; font:600 12px/1 system-ui; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+  #chats { flex:1; overflow-y:auto; padding:4px 6px 10px; }
+  .chatitem { display:flex; align-items:center; gap:4px; padding:7px 8px; border-radius:7px; cursor:pointer; color:var(--text); }
+  .chatitem:hover { background:var(--panel2); }
+  .chatitem.on { background:var(--accent-soft); color:var(--accent); }
+  .chatitem span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
+  .chatitem small { color:var(--muted); font-size:11px; flex:none; }
+  .chatitem button { flex:none; visibility:hidden; border:0; background:none; color:var(--muted); cursor:pointer; padding:0 4px; }
+  .chatitem:hover button { visibility:visible; }
+  .side-empty { color:var(--muted); font-size:13px; padding:8px 12px; }
+
+  /* chat column */
+  .chatcol { flex:1; display:flex; flex-direction:column; min-width:0; }
+  #log { flex:1; overflow-y:auto; padding:18px 16px; display:flex; flex-direction:column; gap:14px; max-width:880px; width:100%; margin:0 auto; }
+  .msg { padding:10px 14px; border-radius:10px; overflow-wrap:anywhere; }
+  .msg .t { white-space:pre-wrap; }
+  .user { background:var(--user); border:1px solid var(--user-line); align-self:flex-end; max-width:85%; }
+  .assistant { background:var(--bubble); border:1px solid var(--line); }
+  .think { color:var(--muted); font-size:13px; border-left:2px solid var(--line); padding-left:8px; margin-bottom:6px; white-space:pre-wrap; }
+  .meta { font-size:12px; color:var(--muted); margin-bottom:6px; font-family:ui-monospace, Consolas, monospace; }
+  .meta div::before { content:'▸ '; color:var(--accent-dim); }
+  pre { position:relative; background:var(--code); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:8px 0; }
+  pre code { font:13px/1.5 ui-monospace, Consolas, monospace; color:var(--codetext); white-space:pre; }
+  pre .copy, pre .open { position:absolute; top:6px; padding:2px 8px; font-size:12px; border-radius:5px; background:var(--panel2); border:1px solid var(--line); cursor:pointer; }
+  pre .copy { right:6px; color:var(--muted); }
+  pre .open { right:84px; color:var(--accent); }
+  .sources { margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); font-size:13px; }
+  .sources a { color:var(--accent); text-decoration:none; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { display:inline-flex; align-items:center; gap:6px; max-width:260px; padding:4px 8px; border:1px solid var(--line); border-radius:6px; background:var(--panel2); font-size:12px; }
+  .chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chip small { color:var(--muted); }
+  .chip.err { border-color:var(--danger); }
+  .chip button { padding:0 4px; background:none; border:0; color:var(--muted); cursor:pointer; font-size:14px; }
+  .user .chips { margin-bottom:6px; }
+  .card { display:flex; align-items:center; gap:10px; margin:8px 0; padding:9px 12px; border:1px solid var(--accent-dim); border-radius:8px; background:var(--accent-soft); cursor:pointer; }
+  .card b { color:var(--accent); font-family:ui-monospace, Consolas, monospace; font-size:13px; }
+  .card small { color:var(--muted); }
+  .approve { margin:8px 0; padding:10px 12px; border:1px solid #c9a227; border-radius:8px; background:rgba(201,162,39,.08); }
+  .approve pre { margin:6px 0; }
+  .approve .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .approve button { padding:5px 14px; border-radius:6px; border:1px solid var(--line); cursor:pointer; }
+  .approve .yes { background:var(--accent); color:var(--ink); border-color:var(--accent); font-weight:600; }
+  .approve .no { background:transparent; }
+  .mediabox { margin-top:8px; display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+  .mediabox img, .mediabox video { max-width:100%; max-height:60vh; border-radius:8px; border:1px solid var(--line); background:#000; cursor:pointer; }
+  .mediabox a { color:var(--accent); font-size:13px; }
+  .empty { margin:auto; text-align:center; color:var(--muted); font-size:14px; }
+  .empty b { color:var(--text); font-size:20px; display:block; margin-bottom:6px; }
+
+  .composer { border-top:1px solid var(--line); background:var(--head); padding:10px 16px 14px; }
+  .composer .inner { max-width:880px; margin:0 auto; display:flex; flex-direction:column; gap:8px; }
+  form { display:flex; gap:8px; align-items:stretch; }
+  textarea#input { flex:1; resize:none; height:64px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+  textarea:focus, select:focus, .field:focus { outline:1px solid var(--accent-dim); border-color:var(--accent-dim); }
+  #send { padding:0 20px; border:0; border-radius:8px; background:var(--accent); color:var(--ink); font-weight:700; cursor:pointer; }
+  #send.stop { background:var(--danger); color:#fff; }
+  .skillwrap { position:relative; display:flex; }
+  #skillBtn { padding:0 12px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--text); cursor:pointer; white-space:nowrap; font-size:14px; }
+  #skillBtn:hover { border-color:var(--accent-dim); }
+  #skillBtn b { margin-left:6px; padding:0 6px; border-radius:999px; background:var(--accent); color:var(--ink); font-size:12px; }
+  #skillBtn b:empty { display:none; }
+  .skillmenu { position:absolute; left:0; bottom:calc(100% + 8px); width:min(340px,80vw); max-height:60vh; overflow:auto; padding:8px; border:1px solid var(--line); border-radius:10px; background:var(--panel); box-shadow:0 12px 32px rgba(0,0,0,.35); display:none; z-index:20; }
+  .skillmenu.open { display:block; }
+  .skillmenu label { display:flex; gap:10px; align-items:flex-start; padding:8px; border-radius:7px; cursor:pointer; }
+  .skillmenu label:hover { background:var(--panel2); }
+  .skillmenu input { margin-top:4px; accent-color:var(--accent); }
+  .skillmenu b { display:block; font-size:14px; }
+  .skillmenu small { color:var(--muted); font-size:12px; line-height:1.4; display:block; }
+  .chip.skill { border-color:var(--accent-dim); background:var(--accent-soft); color:var(--accent); }
+  @media (max-width:700px) { #skillBtn span { display:none; } }
+  #attach { width:46px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--accent); font-size:26px; line-height:1; cursor:pointer; }
+  .secondary { padding:5px 10px; border:1px solid var(--line); border-radius:6px; background:transparent; color:var(--muted); font-size:13px; cursor:pointer; }
+  button:disabled { opacity:.45; cursor:default; }
+
+  /* B: results */
+  #panel { width:42%; max-width:860px; min-width:340px; flex:none; display:flex; flex-direction:column; border-left:1px solid var(--line); background:var(--head); min-height:0; }
+  .ph { display:flex; align-items:center; gap:6px; padding:8px 10px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .ph .name { font:600 13px/1.2 ui-monospace, Consolas, monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:80px; }
+  .tabs { display:inline-flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; }
+  .tabs button { padding:4px 12px; border:0; background:transparent; color:var(--muted); font-size:13px; cursor:pointer; }
+  .tabs button.on { background:var(--accent); color:var(--ink); font-weight:600; }
+  .pb { flex:1; min-height:0; position:relative; display:flex; }
+  .pb > * { flex:1; min-width:0; }
+  .pb pre { margin:0; border:0; border-radius:0; overflow:auto; }
+  .pb iframe { border:0; background:#fff; width:100%; height:100%; }
+  .pb iframe.dark { background:#0b0f0d; }
+  .pb .mediaview { display:grid; place-items:center; padding:12px; overflow:auto; }
+  .pb .mediaview img, .pb .mediaview video { max-width:100%; max-height:100%; border-radius:8px; }
+  .panel-empty { display:grid; place-items:center; text-align:center; color:var(--muted); padding:24px; font-size:14px; }
+  .panel-empty b { display:block; color:var(--text); font-size:16px; margin-bottom:6px; }
+  .gallery { border-top:1px solid var(--line); padding:8px 10px; }
+  .gallery h3 { margin:0 0 6px; font:600 12px/1 system-ui; color:var(--muted); letter-spacing:.04em; }
+  .tiles { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+  .tile { flex:none; width:92px; height:68px; border:1px solid var(--line); border-radius:7px; background:var(--panel2); cursor:pointer; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:11px; color:var(--muted); }
+  .tile.on { border-color:var(--accent); }
+  .tile img, .tile video { width:100%; height:100%; object-fit:cover; }
+  .tile .ic { font-size:20px; }
+  .tile span { max-width:86px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* draggable dividers between A | chat | B */
+  .gutter { flex:none; width:7px; margin:0 -3px; position:relative; z-index:4; cursor:col-resize; touch-action:none; }
+  .gutter::after { content:''; position:absolute; top:0; bottom:0; left:3px; width:1px; background:transparent; transition:background .15s, width .15s, left .15s; }
+  .gutter:hover::after, .gutter.active::after { left:2px; width:3px; background:var(--accent); }
+  body.resizing { cursor:col-resize; user-select:none; }
+  body.resizing iframe, body.resizing video { pointer-events:none; }   /* iframes would swallow the drag */
+  #side { border-right:0; }
+  #panel { border-left:0; }
+  .chatcol { border-left:1px solid var(--line); border-right:1px solid var(--line); }
+  body.drag::after { content:attr(data-drop); position:fixed; inset:12px; z-index:50; border:2px dashed var(--accent); border-radius:14px; background:color-mix(in srgb, var(--bg) 80%, transparent); display:grid; place-items:center; color:var(--accent); font-size:20px; }
+
+  @media (max-width:1250px) {
+    #gutA { display:none; }
+    #side { position:fixed; left:0; top:0; bottom:0; z-index:30; box-shadow:4px 0 24px rgba(0,0,0,.4); transform:translateX(-105%); transition:transform .2s; }
+    body.side-open #side { transform:none; }
+    .only-narrow.side-btn { display:inline-grid; }
+  }
+  @media (max-width:900px) {
+    #gutB { display:none; }
+    #panel { position:fixed; inset:0; width:auto; max-width:none; min-width:0; z-index:25; display:none; }
+    body.panel-open #panel { display:flex; }
+    .only-narrow { display:inline-grid; }
+    .hide-narrow { display:none; }
+    .user { max-width:95%; }
+  }
+</style>
+</head>
+<body>
+<div class="watermark" aria-hidden="true"><img src="/logo.svg" alt=""></div>
+<header>
+  <button class="icon-btn only-narrow side-btn" id="sideBtn" type="button" data-i18n-title="history">☰</button>
+  <div class="brand"><img src="/logo.svg" alt=""><h1>Absolute <b>AI</b></h1></div>
+  <select id="model"></select>
+  <select id="mode">
+    <option value="auto" data-i18n="mode_auto"></option>
+    <option value="chat" data-i18n="mode_chat"></option>
+    <option value="image" data-i18n="mode_image"></option>
+    <option value="video" data-i18n="mode_video"></option>
+  </select>
+  <select id="quality">
+    <option value="fast" data-i18n="q_fast"></option>
+    <option value="hd" data-i18n="q_hd"></option>
+  </select>
+  <label class="toggle" data-i18n-title="web_tip"><input type="checkbox" id="web">🌐 <span data-i18n="web"></span></label>
+  <label class="toggle" data-i18n-title="accurate_tip"><input type="checkbox" id="accurate">🎯 <span data-i18n="accurate"></span></label>
+  <label class="toggle" data-i18n-title="preview_tip"><input type="checkbox" id="preview" checked>🖥 <span data-i18n="preview"></span></label>
+  <span class="spacer"></span>
+  <span class="status hide-narrow" id="status"></span>
+  <button class="icon-btn only-narrow" id="panelBtn" type="button" data-i18n-title="results">▣</button>
+  <button class="icon-btn" id="themeBtn" type="button"></button>
+  <select id="uiLang" title="Language">
+    <option value="th">🇹🇭 ไทย</option><option value="en">🇬🇧 English</option><option value="zh">🇨🇳 中文</option>
+    <option value="ja">🇯🇵 日本語</option><option value="ko">🇰🇷 한국어</option>
+  </select>
+  <button class="icon-btn" id="settingsBtn" type="button" data-i18n-title="settings">⚙</button>
+  <div class="settings" id="settings">
+    <label><span data-i18n="replyLang"></span><select id="replyLang"></select></label>
+    <label><span data-i18n="systemPrompt"></span><textarea id="system" data-i18n-ph="systemPrompt_ph"></textarea></label>
+    <div class="status" id="status2"></div>
+  </div>
+</header>
+
+<div class="main">
+  <aside id="side">
+    <div class="top"><button id="newChat" type="button">＋ <span data-i18n="newChat"></span></button></div>
+    <h2 data-i18n="history"></h2>
+    <div id="chats"></div>
+  </aside>
+  <div class="gutter" id="gutA" title="ลากเพื่อปรับความกว้าง · ดับเบิลคลิกเพื่อคืนค่า"></div>
+
+  <section class="chatcol">
+    <div id="log"></div>
+    <div class="composer"><div class="inner">
+      <div class="chips" id="skillChips"></div>
+      <div class="chips" id="pending"></div>
+      <form id="form">
+        <button type="button" id="attach" data-i18n-title="attach">+</button>
+        <div class="skillwrap">
+          <button type="button" id="skillBtn" data-i18n-title="skills_tip">⚡ <span data-i18n="skills"></span><b id="skillCount"></b></button>
+          <div class="skillmenu" id="skillMenu"></div>
+        </div>
+        <input type="file" id="file" multiple hidden
+          accept="image/*,.pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.xml,.html,.htm,.css,.js,.jsx,.ts,.tsx,.py,.java,.c,.h,.cpp,.cs,.go,.rs,.php,.rb,.sh,.ps1,.sql,.yaml,.yml,.ini,.toml,.log">
+        <textarea id="input" data-i18n-ph="placeholder"></textarea>
+        <button id="send" data-i18n="send"></button>
+      </form>
+    </div></div>
+  </section>
+  <div class="gutter" id="gutB" title="ลากเพื่อปรับความกว้าง · ดับเบิลคลิกเพื่อคืนค่า"></div>
+
+  <aside id="panel">
+    <div class="ph">
+      <span class="name" id="pname"></span>
+      <div class="tabs" id="tabs"><button type="button" id="tabCode" data-i18n="tabCode"></button><button type="button" id="tabRun" data-i18n="tabRun"></button></div>
+      <button class="secondary" type="button" id="pcopy" data-i18n="copy"></button>
+      <button class="secondary" type="button" id="pdl" data-i18n="download"></button>
+      <button class="secondary only-narrow" type="button" id="pclose">✕</button>
+    </div>
+    <div class="pb" id="pbody"></div>
+    <div class="gallery"><h3 data-i18n="results"></h3><div class="tiles" id="tiles"></div></div>
+  </aside>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const log = $('log'), input = $('input'), send = $('send'), modelSel = $('model');
+const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+// ---------- interface language ----------
+const I18N = {
+  th: { newChat:'แชทใหม่', history:'ประวัติแชท', noChats:'ยังไม่มีแชท', mode_auto:'โหมด: อัตโนมัติ', mode_chat:'💬 แชท', mode_image:'🖼 สร้างรูป', mode_video:'🎬 สร้างวิดีโอ',
+    notReady:'(ยังไม่พร้อม)', q_fast:'วิดีโอ: เร็ว (544p · 2 วิ)', q_hd:'วิดีโอ: คมชัด (720p · 5 วิ)', skill_general:'Skill: ทั่วไป', web:'ค้นเว็บ', accurate:'แม่นยำ', preview:'ตัวอย่าง',
+    web_tip:'ค้นข้อมูลจากอินเทอร์เน็ตก่อนตอบ', accurate_tip:'ตรวจสอบละเอียด อ้างอิงแหล่งที่มา ลดการเดา', preview_tip:'สร้างหน้าจอ/ไดอะแกรมตัวอย่างในแถบขวาเมื่อเสนอไอเดีย',
+    settings:'ตั้งค่า', replyLang:'ภาษาที่ให้ AI ตอบ', replyAuto:'อัตโนมัติ (ตามภาษาที่ถาม)', systemPrompt:'System prompt', systemPrompt_ph:'คำสั่งเพิ่มเติมสำหรับทุกข้อความ (ไม่บังคับ)',
+    skills:'Skill', skills_tip:'เลือก skill ได้หลายตัว', themeLight:'โทนสว่าง', themeDark:'โทนมืด', placeholder:'พิมพ์ข้อความ แล้วกด Enter (Shift+Enter ขึ้นบรรทัดใหม่)', send:'ส่ง', stop:'หยุด', attach:'แนบรูปหรือเอกสาร',
+    emptyTitle:'Absolute AI', emptyHint:'ถามอะไรก็ได้ สั่งเขียนโค้ด สร้างรูป หรือสร้างวิดีโอ · แนบไฟล์ด้วยปุ่ม +', results:'ผลลัพธ์',
+    resultsEmptyT:'ผลลัพธ์จะแสดงที่นี่', resultsEmpty:'รูป วิดีโอ โค้ด และหน้าจอตัวอย่าง', tabCode:'โค้ด', tabRun:'ผลลัพธ์', copy:'คัดลอก', copied:'คัดลอกแล้ว', download:'ดาวน์โหลด',
+    ready:'พร้อม', tools:'tools', noOllama:'เชื่อมต่อ Ollama ไม่ได้', noBridge:'เชื่อมต่อ bridge ไม่ได้ (รัน a01.ps1)', usingModel:'ใช้โมเดล', progress:'ความคืบหน้า', steps:'ขั้น',
+    approveTitle:'ขออนุมัติรันคำสั่ง', approve:'อนุมัติ', deny:'ไม่อนุมัติ', approved:'อนุมัติแล้ว', denied:'ไม่อนุมัติ', calling:'เรียกใช้',
+    mockupMaking:'กำลังสร้างหน้าจอตัวอย่าง…', diagramMaking:'กำลังวาดไดอะแกรม…', mockupCard:'หน้าจอตัวอย่าง', diagramCard:'ไดอะแกรม', clickOpen:'คลิกเพื่อเปิดในแถบผลลัพธ์',
+    reading:'กำลังอ่าน…', unreadable:'อ่านไม่ได้', error:'ผิดพลาด', stopped:'หยุดแล้ว', dropHere:'วางไฟล์ที่นี่', waitFiles:'รออ่านไฟล์ให้เสร็จก่อน…',
+    summarize:'ช่วยอ่านและสรุปไฟล์ที่แนบมา', animate:'ทำให้ภาพนี้เคลื่อนไหวอย่างเป็นธรรมชาติ กล้องค่อย ๆ เคลื่อน', created_image:'สร้างรูปแล้ว', created_video:'สร้างวิดีโอแล้ว',
+    dl_image:'ดาวน์โหลดรูป', dl_video:'ดาวน์โหลดวิดีโอ', deleteChat:'ลบแชทนี้?', auto:'⚡ อัตโนมัติ (รวมทุกโมเดล)', thisPc:'เครื่องนี้', chars:'ตัวอักษร', pages:'หน้า' },
+  en: { newChat:'New chat', history:'History', noChats:'No chats yet', mode_auto:'Mode: Auto', mode_chat:'💬 Chat', mode_image:'🖼 Create image', mode_video:'🎬 Create video',
+    notReady:'(not ready)', q_fast:'Video: fast (544p · 2 s)', q_hd:'Video: sharp (720p · 5 s)', skill_general:'Skill: General', web:'Web', accurate:'Accurate', preview:'Preview',
+    web_tip:'Search the internet before answering', accurate_tip:'Check carefully, cite sources, avoid guessing', preview_tip:'Build a mockup/diagram in the right panel when ideas are proposed',
+    settings:'Settings', replyLang:'AI reply language', replyAuto:'Auto (same as your message)', systemPrompt:'System prompt', systemPrompt_ph:'Extra instructions for every message (optional)',
+    skills:'Skills', skills_tip:'Pick one or more skills', themeLight:'Light', themeDark:'Dark', placeholder:'Type a message, Enter to send (Shift+Enter for a new line)', send:'Send', stop:'Stop', attach:'Attach images or documents',
+    emptyTitle:'Absolute AI', emptyHint:'Ask anything, write code, create images or videos · attach files with +', results:'Results',
+    resultsEmptyT:'Results appear here', resultsEmpty:'Images, videos, code and preview screens', tabCode:'Code', tabRun:'Result', copy:'Copy', copied:'Copied', download:'Download',
+    ready:'Ready', tools:'tools', noOllama:'Cannot reach Ollama', noBridge:'Cannot reach the bridge (run a01.ps1)', usingModel:'Using model', progress:'Progress', steps:'steps',
+    approveTitle:'Approve this command?', approve:'Approve', deny:'Deny', approved:'Approved', denied:'Denied', calling:'Calling',
+    mockupMaking:'Building a preview screen…', diagramMaking:'Drawing a diagram…', mockupCard:'Preview screen', diagramCard:'Diagram', clickOpen:'Click to open in the results panel',
+    reading:'Reading…', unreadable:'Unreadable', error:'Error', stopped:'Stopped', dropHere:'Drop files here', waitFiles:'Waiting for files to be read…',
+    summarize:'Please read and summarize the attached files', animate:'Animate this image naturally with a slow camera move', created_image:'Image created', created_video:'Video created',
+    dl_image:'Download image', dl_video:'Download video', deleteChat:'Delete this chat?', auto:'⚡ Auto (all models)', thisPc:'this PC', chars:'chars', pages:'pages' },
+  zh: { newChat:'新对话', history:'历史记录', noChats:'暂无对话', mode_auto:'模式：自动', mode_chat:'💬 对话', mode_image:'🖼 生成图片', mode_video:'🎬 生成视频',
+    notReady:'（未就绪）', q_fast:'视频：快速 (544p · 2 秒)', q_hd:'视频：高清 (720p · 5 秒)', skill_general:'技能：通用', web:'联网', accurate:'精确', preview:'预览',
+    web_tip:'回答前先搜索互联网', accurate_tip:'仔细核对、引用来源、避免猜测', preview_tip:'提出想法时在右侧生成界面/图表预览',
+    settings:'设置', replyLang:'AI 回复语言', replyAuto:'自动（与提问语言相同）', systemPrompt:'系统提示词', systemPrompt_ph:'每条消息的额外指令（可选）',
+    skills:'技能', skills_tip:'可选择多个技能', themeLight:'浅色', themeDark:'深色', placeholder:'输入消息，按 Enter 发送（Shift+Enter 换行）', send:'发送', stop:'停止', attach:'添加图片或文档',
+    emptyTitle:'Absolute AI', emptyHint:'随便问、写代码、生成图片或视频 · 用 + 添加文件', results:'结果',
+    resultsEmptyT:'结果将显示在这里', resultsEmpty:'图片、视频、代码和界面预览', tabCode:'代码', tabRun:'结果', copy:'复制', copied:'已复制', download:'下载',
+    ready:'就绪', tools:'工具', noOllama:'无法连接 Ollama', noBridge:'无法连接 bridge（运行 a01.ps1）', usingModel:'使用模型', progress:'进度', steps:'步',
+    approveTitle:'是否允许运行此命令？', approve:'允许', deny:'拒绝', approved:'已允许', denied:'已拒绝', calling:'调用',
+    mockupMaking:'正在生成界面预览…', diagramMaking:'正在绘制图表…', mockupCard:'界面预览', diagramCard:'图表', clickOpen:'点击在结果面板中打开',
+    reading:'读取中…', unreadable:'无法读取', error:'错误', stopped:'已停止', dropHere:'将文件拖到这里', waitFiles:'请等待文件读取完成…',
+    summarize:'请阅读并总结附件', animate:'让这张图片自然地动起来，镜头缓慢移动', created_image:'图片已生成', created_video:'视频已生成',
+    dl_image:'下载图片', dl_video:'下载视频', deleteChat:'删除此对话？', auto:'⚡ 自动（全部模型）', thisPc:'本机', chars:'字', pages:'页' },
+  ja: { newChat:'新しいチャット', history:'履歴', noChats:'チャットはまだありません', mode_auto:'モード：自動', mode_chat:'💬 チャット', mode_image:'🖼 画像を生成', mode_video:'🎬 動画を生成',
+    notReady:'（準備中）', q_fast:'動画：高速 (544p · 2秒)', q_hd:'動画：高画質 (720p · 5秒)', skill_general:'スキル：一般', web:'ウェブ検索', accurate:'正確', preview:'プレビュー',
+    web_tip:'回答前にインターネットを検索', accurate_tip:'丁寧に確認し出典を示す', preview_tip:'アイデア提案時に右側へ画面/図のプレビューを作成',
+    settings:'設定', replyLang:'AIの回答言語', replyAuto:'自動（質問と同じ言語）', systemPrompt:'システムプロンプト', systemPrompt_ph:'すべてのメッセージへの追加指示（任意）',
+    skills:'スキル', skills_tip:'複数のスキルを選択できます', themeLight:'ライト', themeDark:'ダーク', placeholder:'メッセージを入力し Enter で送信（Shift+Enter で改行）', send:'送信', stop:'停止', attach:'画像やドキュメントを添付',
+    emptyTitle:'Absolute AI', emptyHint:'質問、コード作成、画像・動画生成 · + でファイル添付', results:'結果',
+    resultsEmptyT:'結果はここに表示されます', resultsEmpty:'画像、動画、コード、画面プレビュー', tabCode:'コード', tabRun:'結果', copy:'コピー', copied:'コピーしました', download:'ダウンロード',
+    ready:'準備完了', tools:'ツール', noOllama:'Ollama に接続できません', noBridge:'bridge に接続できません（a01.ps1 を実行）', usingModel:'使用モデル', progress:'進捗', steps:'ステップ',
+    approveTitle:'このコマンドを実行しますか？', approve:'許可', deny:'拒否', approved:'許可しました', denied:'拒否しました', calling:'呼び出し',
+    mockupMaking:'画面プレビューを作成中…', diagramMaking:'図を作成中…', mockupCard:'画面プレビュー', diagramCard:'図', clickOpen:'クリックして結果パネルで開く',
+    reading:'読み込み中…', unreadable:'読み込めません', error:'エラー', stopped:'停止しました', dropHere:'ここにファイルをドロップ', waitFiles:'ファイルの読み込みを待っています…',
+    summarize:'添付ファイルを読んで要約してください', animate:'この画像を自然に動かし、カメラをゆっくり動かす', created_image:'画像を作成しました', created_video:'動画を作成しました',
+    dl_image:'画像をダウンロード', dl_video:'動画をダウンロード', deleteChat:'このチャットを削除しますか？', auto:'⚡ 自動（全モデル）', thisPc:'このPC', chars:'文字', pages:'ページ' },
+  ko: { newChat:'새 채팅', history:'기록', noChats:'아직 채팅이 없습니다', mode_auto:'모드: 자동', mode_chat:'💬 채팅', mode_image:'🖼 이미지 생성', mode_video:'🎬 동영상 생성',
+    notReady:'(준비 중)', q_fast:'동영상: 빠름 (544p · 2초)', q_hd:'동영상: 선명 (720p · 5초)', skill_general:'스킬: 일반', web:'웹 검색', accurate:'정확', preview:'미리보기',
+    web_tip:'답하기 전에 인터넷 검색', accurate_tip:'꼼꼼히 확인하고 출처 표시', preview_tip:'아이디어 제안 시 오른쪽에 화면/다이어그램 미리보기 생성',
+    settings:'설정', replyLang:'AI 답변 언어', replyAuto:'자동 (질문 언어와 동일)', systemPrompt:'시스템 프롬프트', systemPrompt_ph:'모든 메시지에 대한 추가 지시 (선택)',
+    skills:'스킬', skills_tip:'여러 스킬을 선택할 수 있습니다', themeLight:'라이트', themeDark:'다크', placeholder:'메시지를 입력하고 Enter로 전송 (Shift+Enter 줄바꿈)', send:'전송', stop:'중지', attach:'이미지 또는 문서 첨부',
+    emptyTitle:'Absolute AI', emptyHint:'무엇이든 질문, 코드 작성, 이미지·동영상 생성 · +로 파일 첨부', results:'결과',
+    resultsEmptyT:'결과가 여기에 표시됩니다', resultsEmpty:'이미지, 동영상, 코드, 화면 미리보기', tabCode:'코드', tabRun:'결과', copy:'복사', copied:'복사됨', download:'다운로드',
+    ready:'준비됨', tools:'도구', noOllama:'Ollama에 연결할 수 없음', noBridge:'bridge에 연결할 수 없음 (a01.ps1 실행)', usingModel:'사용 모델', progress:'진행', steps:'단계',
+    approveTitle:'이 명령을 실행할까요?', approve:'허용', deny:'거부', approved:'허용됨', denied:'거부됨', calling:'호출',
+    mockupMaking:'화면 미리보기 생성 중…', diagramMaking:'다이어그램 그리는 중…', mockupCard:'화면 미리보기', diagramCard:'다이어그램', clickOpen:'클릭하여 결과 패널에서 열기',
+    reading:'읽는 중…', unreadable:'읽을 수 없음', error:'오류', stopped:'중지됨', dropHere:'여기에 파일을 놓으세요', waitFiles:'파일을 읽는 중입니다…',
+    summarize:'첨부 파일을 읽고 요약해 주세요', animate:'이 이미지를 자연스럽게 움직이고 카메라를 천천히 이동', created_image:'이미지 생성됨', created_video:'동영상 생성됨',
+    dl_image:'이미지 다운로드', dl_video:'동영상 다운로드', deleteChat:'이 채팅을 삭제할까요?', auto:'⚡ 자동 (모든 모델)', thisPc:'이 PC', chars:'자', pages:'페이지' },
+};
+let uiLang = store.get('uiLang', 'th');
+const t = k => (I18N[uiLang] || I18N.th)[k] ?? I18N.en[k] ?? k;
+function applyI18n() {
+  document.documentElement.lang = uiLang;
+  document.querySelectorAll('[data-i18n]').forEach(e => { e.textContent = t(e.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(e => { e.placeholder = t(e.dataset.i18nPh); });
+  document.querySelectorAll('[data-i18n-title]').forEach(e => { e.title = t(e.dataset.i18nTitle); });
+  document.body.dataset.drop = t('dropHere');
+  if (modelSel.options[0]?.value === 'auto') modelSel.options[0].textContent = t('auto');
+  const first = $('replyLang').options[0]; if (first) first.textContent = t('replyAuto');
+  send.textContent = busy ? t('stop') : t('send');
+  setTheme(document.documentElement.dataset.theme);
+  markMediaReady();
+  drawChats(); if (!log.childElementCount || $('empty')) showEmpty(); drawGallery(); if (!current) panelEmpty();
+}
+$('uiLang').value = uiLang;
+$('uiLang').onchange = e => { uiLang = e.target.value; store.set('uiLang', uiLang); applyI18n(); };
+
+// ---------- theme ----------
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  store.set('theme', th);
+  $('themeBtn').textContent = th === 'dark' ? '☀' : '🌙';
+  $('themeBtn').title = th === 'dark' ? t('themeLight') : t('themeDark');
+}
+$('themeBtn').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// ---------- reply language (sent to the model) ----------
+const REPLY_LANGS = [['', ''], ['th', 'ไทย'], ['en', 'English'], ['zh', '简体中文'], ['zh-TW', '繁體中文'], ['ja', '日本語'], ['ko', '한국어'], ['vi', 'Tiếng Việt'],
+  ['id', 'Bahasa Indonesia'], ['ms', 'Bahasa Melayu'], ['hi', 'हिन्दी'], ['ar', 'العربية'], ['es', 'Español'], ['fr', 'Français'], ['de', 'Deutsch'],
+  ['pt', 'Português'], ['it', 'Italiano'], ['ru', 'Русский'], ['tr', 'Türkçe'], ['pl', 'Polski'], ['nl', 'Nederlands'], ['uk', 'Українська'], ['sv', 'Svenska'],
+  ['bn', 'বাংলা'], ['fa', 'فارسی'], ['he', 'עברית'], ['el', 'Ελληνικά'], ['cs', 'Čeština'], ['da', 'Dansk'], ['fi', 'Suomi'], ['no', 'Norsk'],
+  ['hu', 'Magyar'], ['ro', 'Română'], ['fil', 'Filipino'], ['sw', 'Kiswahili'], ['ur', 'اردو'], ['ta', 'தமிழ்'], ['my', 'မြန်မာ'], ['lo', 'ລາວ'], ['km', 'ខ្មែរ']];
+$('replyLang').replaceChildren(...REPLY_LANGS.map(([v, n]) => new Option(n, v)));
+$('replyLang').value = store.get('replyLang', '');
+$('replyLang').onchange = e => store.set('replyLang', e.target.value);
+$('system').value = store.get('system', '');
+$('system').oninput = e => store.set('system', e.target.value);
+$('settingsBtn').onclick = e => { e.stopPropagation(); $('settings').classList.toggle('open'); };
+document.addEventListener('click', e => { if (!$('settings').contains(e.target) && e.target !== $('settingsBtn')) $('settings').classList.remove('open'); });
+$('sideBtn').onclick = () => document.body.classList.toggle('side-open');
+$('panelBtn').onclick = () => document.body.classList.toggle('panel-open');
+$('pclose').onclick = () => document.body.classList.remove('panel-open');
+
+// ---------- state ----------
+const MAX_FILE_CHARS = 30000, MAX_TOTAL_CHARS = 60000;
+let history = [], pending = [], busy = null, caps = [], modelsList = [], mediaReady = false;
+let chatId = null, chatTitle = '', results = [], current = null, savedChats = [];
+const canSeeImages = () => caps.includes('vision') && (modelSel.value !== 'auto' || modelsList.some(m => /gemma4|vl/.test(m)));
+
+async function info() {
+  try {
+    const j = await (await fetch('/api/info')).json();
+    modelsList = j.models; mediaReady = j.media;
+    const want = ['auto', ...j.models];
+    if (want.join() !== [...modelSel.options].map(o => o.value).join()) {
+      const keep = modelSel.value || store.get('model', 'auto');
+      modelSel.replaceChildren(new Option(t('auto'), 'auto'), ...j.models.map(n => new Option(n, n)));
+      modelSel.value = want.includes(keep) ? keep : 'auto';
+      loadCaps();
+    }
+    if (!skillList.length && j.skills.length) { skillList = j.skills; drawSkills(); }
+    markMediaReady();
+    const where = /:11500$/.test(j.ollama) ? 'A01' : t('thisPc');
+    const st = j.ollamaUp ? `${t('ready')} (${where}) · ${t('tools')} ${caps.includes('tools') ? 'on' : 'off'}` : `${t('noOllama')} (${where})`;
+    $('status').textContent = st; $('status2').textContent = st;
+  } catch { $('status').textContent = t('noBridge'); $('status2').textContent = t('noBridge'); }
+}
+function markMediaReady() {
+  for (const o of $('mode').options) if (o.value === 'image' || o.value === 'video') o.textContent = t('mode_' + o.value) + (mediaReady ? '' : ' ' + t('notReady'));
+}
+async function loadCaps() {
+  try { caps = await (await fetch('/api/caps?model=' + encodeURIComponent(modelSel.value))).json(); } catch { caps = []; }
+}
+modelSel.onchange = () => { store.set('model', modelSel.value); loadCaps().then(info); };
+
+// ---------- skills (several at once, picker next to +) ----------
+let skillList = [];
+const selectedSkills = new Set((store.get('skills', '') || '').split(',').filter(Boolean));
+const hasSkill = (...ids) => ids.some(id => selectedSkills.has(id));
+function drawSkills() {
+  $('skillMenu').replaceChildren(...skillList.map(s => {
+    const l = document.createElement('label');
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = selectedSkills.has(s.id);
+    cb.onchange = () => { cb.checked ? selectedSkills.add(s.id) : selectedSkills.delete(s.id); saveSkills(); };
+    const d = document.createElement('div'); const b = document.createElement('b'); b.textContent = s.name;
+    const sm = document.createElement('small'); sm.textContent = s.description; d.append(b, sm);
+    l.append(cb, d); return l;
+  }));
+  $('skillCount').textContent = selectedSkills.size || '';
+  $('skillChips').replaceChildren(...skillList.filter(s => selectedSkills.has(s.id)).map(s => {
+    const c = document.createElement('div'); c.className = 'chip skill';
+    const sp = document.createElement('span'); sp.textContent = '⚡ ' + s.name;
+    const x = document.createElement('button'); x.type = 'button'; x.textContent = '×';
+    x.onclick = () => { selectedSkills.delete(s.id); saveSkills(); };
+    c.append(sp, x); return c;
+  }));
+}
+function saveSkills() { store.set('skills', [...selectedSkills].join(',')); drawSkills(); }
+$('skillBtn').onclick = e => { e.stopPropagation(); $('skillMenu').classList.toggle('open'); };
+document.addEventListener('click', e => { if (!$('skillMenu').contains(e.target) && !$('skillBtn').contains(e.target)) $('skillMenu').classList.remove('open'); });
+
+// ---------- chat history (A) ----------
+async function loadChats() { try { savedChats = await (await fetch('/api/chats')).json(); } catch { savedChats = []; } drawChats(); }
+function drawChats() {
+  const box = $('chats');
+  if (!savedChats.length) { const d = document.createElement('div'); d.className = 'side-empty'; d.textContent = t('noChats'); box.replaceChildren(d); return; }
+  box.replaceChildren(...savedChats.map(c => {
+    const el = document.createElement('div'); el.className = 'chatitem' + (c.id === chatId ? ' on' : '');
+    const s = document.createElement('span'); s.textContent = c.title || '…'; s.title = c.title || '';
+    const sm = document.createElement('small'); sm.textContent = c.updated ? new Date(c.updated).toLocaleDateString(uiLang, { day: 'numeric', month: 'short' }) : '';
+    const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.title = t('deleteChat');
+    x.onclick = async e => {
+      e.stopPropagation();
+      if (!confirm(t('deleteChat'))) return;
+      await fetch('/api/chats/' + c.id, { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
+      if (c.id === chatId) newChat();
+      loadChats();
+    };
+    el.append(s, sm, x);
+    el.onclick = () => openChat(c.id);
+    return el;
+  }));
+}
+async function saveChat() {
+  if (!history.length) return;
+  chatId ??= 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  if (!chatTitle) chatTitle = (history.find(m => m.role === 'user')?.display || '').replace(/\s+/g, ' ').slice(0, 60);
+  await fetch('/api/chats/' + chatId, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: chatTitle, history, results: results.map(r => ({ ...r, all: undefined })) }) }).catch(() => {});
+  loadChats();
+}
+function newChat() {
+  if (busy) busy.abort();
+  history = []; results = []; chatId = null; chatTitle = ''; current = null;
+  log.replaceChildren(); showEmpty(); drawGallery(); panelEmpty(); drawChats();
+  document.body.classList.remove('side-open');
+}
+async function openChat(id) {
+  if (busy) busy.abort();
+  const c = await (await fetch('/api/chats/' + id)).json();
+  chatId = id; chatTitle = c.title; history = c.history || []; results = c.results || []; current = null;
+  log.replaceChildren();
+  for (const m of history) {
+    if (m.role === 'user') userBubble(m.display ?? m.content, m.files || []);
+    else {
+      const out = bubble('assistant'); const body = document.createElement('div'); out.appendChild(body);
+      renderText(body, m.content.replace(/\n?\[(created|สร้าง)[^\]]*\]\s*prompt:.*$/gm, ''));
+      for (const md of m.media || []) mediaBox(out, md);
+      for (const r of results.filter(r => r.msg === history.indexOf(m))) resultCard(out, r);
+    }
+  }
+  if (!history.length) showEmpty();
+  drawChats(); drawGallery();
+  if (results.length) showResult(results[results.length - 1]); else panelEmpty();
+  document.body.classList.remove('side-open');
+  log.scrollTop = log.scrollHeight;
+}
+$('newChat').onclick = newChat;
+
+// ---------- messages ----------
+function showEmpty() {
+  if (log.querySelector('.msg')) return;
+  const d = document.createElement('div'); d.className = 'empty'; d.id = 'empty';
+  const b = document.createElement('b'); b.textContent = t('emptyTitle');
+  d.append(b, t('emptyHint')); log.replaceChildren(d);
+}
+function bubble(role) {
+  $('empty')?.remove();
+  const el = document.createElement('div'); el.className = 'msg ' + role; log.appendChild(el); return el;
+}
+function userBubble(text, files) {
+  const ub = bubble('user');
+  if (files.length) ub.appendChild(chipsEl(files, false));
+  const ut = document.createElement('div'); ut.className = 't'; ut.textContent = text; ub.appendChild(ut);
+}
+function renderText(el, text) {
+  el.replaceChildren();
+  const m = text.match(/^\s*<think>([\s\S]*?)(<\/think>|$)([\s\S]*)$/);
+  if (m) {
+    if (m[1].trim()) { const d = document.createElement('div'); d.className = 'think'; d.textContent = m[1].trim(); el.appendChild(d); }
+    text = m[3].trimStart();
+  }
+  text.split(/```/).forEach((p, i) => {
+    if (i % 2 === 0) { const s = p.replace(/^\n+|\n+$/g, ''); if (s) { const d = document.createElement('div'); d.className = 't'; d.textContent = s; el.appendChild(d); } return; }
+    const nl = p.indexOf('\n'); const lang = nl > -1 ? p.slice(0, nl).trim() : ''; const code = (nl > -1 ? p.slice(nl + 1) : p).replace(/\n$/, '');
+    const pre = document.createElement('pre'); const c = document.createElement('code'); c.textContent = code;
+    const cp = document.createElement('button'); cp.className = 'copy'; cp.type = 'button'; cp.textContent = t('copy');
+    cp.onclick = () => navigator.clipboard.writeText(code).then(() => { cp.textContent = t('copied'); setTimeout(() => cp.textContent = t('copy'), 1200); });
+    const op = document.createElement('button'); op.className = 'open'; op.type = 'button'; op.textContent = '▸ ' + t('results');
+    op.onclick = () => showResult(addResult({ kind: 'code', lang: normLang(lang, code), code, all: blocksOf(text) }, false));
+    pre.append(c, op, cp); el.appendChild(pre);
+  });
+}
+function chipsEl(files, removable) {
+  const box = document.createElement('div'); box.className = 'chips';
+  files.forEach((f, i) => {
+    const c = document.createElement('div'); c.className = 'chip' + (f.error ? ' err' : '');
+    const s = document.createElement('span'); s.textContent = (f.kind === 'image' ? '🖼 ' : '📄 ') + f.name;
+    const sm = document.createElement('small'); sm.textContent = f.error ? t('unreadable') : f.ready === false ? t('reading') : f.note || '';
+    c.append(s, sm);
+    if (removable) { const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.onclick = () => { pending.splice(i, 1); drawPending(); }; c.appendChild(x); }
+    box.appendChild(c);
+  });
+  return box;
+}
+function drawPending() { $('pending').replaceChildren(...(pending.length ? [chipsEl(pending, true)] : [])); }
+function mediaBox(out, md) {
+  const box = document.createElement('div'); box.className = 'mediabox';
+  const el = document.createElement(md.kind === 'video' ? 'video' : 'img');
+  el.src = md.url;
+  if (md.kind === 'video') { el.controls = true; el.loop = true; el.muted = true; el.playsInline = true; } else el.alt = md.prompt || '';
+  el.onclick = () => { const r = results.find(x => x.url === md.url); if (r) showResult(r); };
+  const dl = document.createElement('a'); dl.href = md.url; dl.download = md.url.split('/').pop(); dl.textContent = t(md.kind === 'video' ? 'dl_video' : 'dl_image');
+  box.append(el, dl); out.appendChild(box);
+}
+
+// ---------- results panel (B) ----------
+const CDN = {
+  react: 'https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js',
+  reactDom: 'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js',
+  babel: 'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js',
+  tailwind: 'https://cdn.tailwindcss.com/3.4.16',
+  mermaid: 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js',
+};
+const EXT = { html: 'html', svg: 'svg', css: 'css', js: 'js', jsx: 'jsx', tsx: 'tsx', ts: 'ts', python: 'py', mermaid: 'mmd', json: 'json', bash: 'sh', sh: 'sh',
+  powershell: 'ps1', sql: 'sql', java: 'java', c: 'c', cpp: 'cpp', cs: 'cs', go: 'go', rust: 'rs', php: 'php', ruby: 'rb', yaml: 'yml', xml: 'xml', md: 'md', dockerfile: 'Dockerfile' };
+const ALIAS = { htm: 'html', javascript: 'js', node: 'js', typescript: 'ts', py: 'python', python3: 'python', react: 'jsx', 'c++': 'cpp', csharp: 'cs', 'c#': 'cs',
+  shell: 'sh', ps1: 'powershell', pwsh: 'powershell', yml: 'yaml', markdown: 'md', rs: 'rust', golang: 'go', rb: 'ruby', mmd: 'mermaid', postgresql: 'sql', mysql: 'sql', sqlite: 'sql' };
+const RUNNABLE = new Set(['html', 'svg', 'js', 'jsx', 'tsx', 'mermaid', 'python']);
+const PY_ORIGIN = `${location.protocol}//${location.hostname}:${+location.port + 1}`;
+
+function blocksOf(text) {
+  const out = [], rx = /```([^\n`]*)\n([\s\S]*?)```/g;
+  for (let m; (m = rx.exec(text));) out.push({ lang: normLang(m[1], m[2]), code: m[2].replace(/\n$/, '') });
+  return out;
+}
+function normLang(lang, code) {
+  let l = (lang || '').toLowerCase().trim().split(/\s/)[0];
+  l = ALIAS[l] || l;
+  if (!l) {
+    if (/^\s*<(!doctype|html|head|body)/i.test(code)) l = 'html';
+    else if (/^\s*<svg/i.test(code)) l = 'svg';
+    else if (/^\s*(graph |flowchart |sequenceDiagram|erDiagram|classDiagram|gantt|stateDiagram|mindmap)/.test(code)) l = 'mermaid';
+    else if (/^\s*(def |import \w|from \w+ import |print\()/m.test(code)) l = 'python';
+  }
+  if (l === 'js' && /(return\s*\(\s*<|ReactDOM|from ['"]react['"])/.test(code)) l = 'jsx';
+  if (l === 'ts' && /return\s*\(\s*</.test(code)) l = 'tsx';
+  if (l === 'xml' && /^\s*<svg/i.test(code)) l = 'svg';
+  return l;
+}
+function pickArtifact(blocks) {
+  const big = blocks.filter(b => b.code.split('\n').length >= 3);
+  for (const l of ['html', 'svg', 'jsx', 'tsx', 'mermaid', 'python', 'js']) { const b = big.filter(x => x.lang === l).sort((a, c) => c.code.length - a.code.length)[0]; if (b) return b; }
+  return big.sort((a, c) => c.code.length - a.code.length)[0] || null;
+}
+const fileName = r => r.name || (r.kind === 'image' || r.kind === 'video' ? r.url.split('/').pop()
+  : r.lang === 'html' ? 'index.html' : r.lang === 'python' ? 'main.py' : r.lang === 'mermaid' ? 'diagram.mmd' : `code.${EXT[r.lang] || 'txt'}`);
+const noClose = s => s.replace(/<\/script/gi, '<\\/script');
+// same thin, hover-only scrollbars inside previews
+const SCROLL_CSS = '<style>html,body,*{scrollbar-width:thin;scrollbar-color:transparent transparent}html:hover,body:hover,*:hover{scrollbar-color:rgba(128,128,128,.4) transparent}</style>';
+function withScrollCss(doc) {
+  if (/<head[^>]*>/i.test(doc)) return doc.replace(/<head[^>]*>/i, m => m + SCROLL_CSS);
+  if (/<!doctype[^>]*>/i.test(doc)) return doc.replace(/<!doctype[^>]*>/i, m => m + SCROLL_CSS);
+  return SCROLL_CSS + doc;
+}
+
+function buildDoc(r) {
+  const all = r.all || [];
+  const css = all.filter(b => b.lang === 'css').map(b => b.code).join('\n');
+  const js = all.filter(b => b.lang === 'js').map(b => b.code).join('\n;\n');
+  switch (r.lang) {
+    case 'html': {
+      let d = r.code;
+      if (css && !d.includes(css.slice(0, 40))) d = /<\/head>/i.test(d) ? d.replace(/<\/head>/i, `<style>${css}</style></head>`) : `<style>${css}</style>` + d;
+      if (js && !d.includes(js.slice(0, 40))) d = /<\/body>/i.test(d) ? d.replace(/<\/body>/i, `<script>${noClose(js)}<\/script></body>`) : d + `<script>${noClose(js)}<\/script>`;
+      return { doc: d };
+    }
+    case 'svg': return { doc: `<!doctype html><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#fff">${r.code}</body>` };
+    case 'js': return { dark: true, doc: `<!doctype html><meta charset="utf-8"><style>body{margin:0;background:#0b0f0d;color:#c9f5dc;font:13px/1.5 Consolas,monospace}#o{padding:12px;white-space:pre-wrap}.e{color:#ff6b7a}</style><div id="o"></div><script>
+const o=document.getElementById('o');const w=(c,a)=>{const s=document.createElement('div');if(c)s.className=c;s.textContent=a.map(x=>typeof x==='object'?JSON.stringify(x,null,2):String(x)).join(' ');o.appendChild(s)};
+console.log=console.info=console.debug=(...a)=>w('',a);console.warn=console.error=(...a)=>w('e',a);window.onerror=m=>w('e',[m]);
+<\/script><script>${noClose(r.code)}<\/script>` };
+    case 'jsx': case 'tsx': return { doc: `<!doctype html><html><head><meta charset="utf-8"><script src="${CDN.react}"><\/script><script src="${CDN.reactDom}"><\/script><script src="${CDN.babel}"><\/script><script src="${CDN.tailwind}"><\/script></head><body><div id="root"></div><script>
+window.onerror=m=>{const p=document.createElement('pre');p.style.cssText='color:#c00;padding:12px;white-space:pre-wrap';p.textContent=String(m);document.body.appendChild(p)};
+let code=${JSON.stringify(r.code)}.replace(/^\\s*import[^\\n]*$/gm,'');
+const name=(code.match(/export\\s+default\\s+function\\s+(\\w+)/)||code.match(/export\\s+default\\s+(\\w+)\\s*;?\\s*$/m)||code.match(/function\\s+(App)\\b/)||code.match(/const\\s+(App)\\s*=/)||[])[1];
+code=code.replace(/export\\s+default\\s+function/,'function').replace(/export\\s+default\\s+\\w+\\s*;?\\s*$/m,'').replace(/^export\\s+/gm,'');
+code='const {useState,useEffect,useRef,useMemo,useCallback,useReducer,useContext,createContext,Fragment}=React;\\n'+code+(name?'\\nReactDOM.createRoot(document.getElementById("root")).render(React.createElement('+name+'));':'');
+(0,eval)(Babel.transform(code,{filename:'App.tsx',presets:[['typescript',{allExtensions:true,isTSX:true}],'react']}).code);
+<\/script></body></html>` };
+    case 'mermaid': {
+      const dark = document.documentElement.dataset.theme === 'dark';
+      return { dark, doc: `<!doctype html><meta charset="utf-8"><body style="margin:0;padding:16px;background:${dark ? '#0b0f0d' : '#fff'}"><pre class="mermaid">${r.code.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre><script src="${CDN.mermaid}"><\/script><script>mermaid.initialize({startOnLoad:true,theme:'${dark ? 'dark' : 'default'}'})<\/script></body>` };
+    }
+    case 'python': return { dark: true, src: `${PY_ORIGIN}/py-runner.html` };
+  }
+  return null;
+}
+
+function addResult(r, autoShow = true) {
+  const same = results.find(x => (x.url && x.url === r.url) || (x.code && x.code === r.code));
+  if (same) { if (r.all) same.all = r.all; return same; }
+  r.id = 'r' + Date.now() + Math.random().toString(36).slice(2, 5);
+  results.push(r); drawGallery();
+  if (autoShow) showResult(r);
+  return r;
+}
+function panelEmpty() {
+  current = null;
+  $('pname').textContent = t('results');
+  $('tabs').style.visibility = 'hidden'; $('pcopy').disabled = $('pdl').disabled = true;
+  const d = document.createElement('div'); d.className = 'panel-empty';
+  const b = document.createElement('b'); b.textContent = t('resultsEmptyT');
+  const wrap = document.createElement('div'); wrap.append(b, t('resultsEmpty')); d.appendChild(wrap);
+  $('pbody').replaceChildren(d);
+}
+function showResult(r, tab) {
+  if (!r) return panelEmpty();
+  current = r;
+  $('pname').textContent = fileName(r);
+  $('pcopy').disabled = !r.code; $('pdl').disabled = false;
+  document.body.classList.add('panel-open');
+  if (r.kind === 'image' || r.kind === 'video') {
+    $('tabs').style.visibility = 'hidden';
+    const v = document.createElement('div'); v.className = 'mediaview';
+    const el = document.createElement(r.kind === 'video' ? 'video' : 'img'); el.src = r.url;
+    if (r.kind === 'video') { el.controls = true; el.autoplay = true; el.loop = true; el.muted = true; el.playsInline = true; }
+    v.appendChild(el); $('pbody').replaceChildren(v);
+  } else {
+    $('tabs').style.visibility = 'visible';
+    const runnable = RUNNABLE.has(r.lang);
+    $('tabRun').disabled = !runnable;
+    showTab(tab || (runnable ? 'run' : 'code'));
+  }
+  drawGallery();
+}
+function showTab(which) {
+  if (!current?.code && current?.code !== '') return;
+  $('tabCode').classList.toggle('on', which === 'code');
+  $('tabRun').classList.toggle('on', which === 'run');
+  if (which === 'run') {
+    const built = buildDoc(current); const f = document.createElement('iframe');
+    f.className = built.dark ? 'dark' : '';
+    if (built.src) {
+      f.sandbox = 'allow-scripts allow-same-origin';   // separate origin (port + 1), never this page's
+      const code = current.code; f.onload = () => f.contentWindow.postMessage({ code }, PY_ORIGIN); f.src = built.src;
+    } else { f.sandbox = 'allow-scripts allow-modals allow-forms allow-popups'; f.srcdoc = withScrollCss(built.doc); }   // no same-origin: cannot reach this app's API
+    $('pbody').replaceChildren(f);
+  } else {
+    const pre = document.createElement('pre'); const c = document.createElement('code'); c.textContent = current.code; pre.appendChild(c);
+    $('pbody').replaceChildren(pre);
+  }
+}
+function drawGallery() {
+  $('tiles').replaceChildren(...results.map(r => {
+    const tile = document.createElement('div'); tile.className = 'tile' + (r === current ? ' on' : ''); tile.title = r.prompt || fileName(r);
+    if (r.kind === 'image') { const i = document.createElement('img'); i.src = r.url; tile.appendChild(i); }
+    else if (r.kind === 'video') { const v = document.createElement('video'); v.src = r.url; v.muted = true; v.preload = 'metadata'; tile.appendChild(v); }
+    else {
+      const ic = document.createElement('div'); ic.className = 'ic';
+      ic.textContent = r.lang === 'html' || r.lang === 'jsx' || r.lang === 'tsx' ? '🖥' : r.lang === 'mermaid' ? '🧭' : r.lang === 'sql' ? '🗄' : '📄';
+      const s = document.createElement('span'); s.textContent = fileName(r); tile.append(ic, s);
+    }
+    tile.onclick = () => showResult(r);
+    return tile;
+  }));
+}
+function resultCard(out, r) {
+  const card = document.createElement('div'); card.className = 'card';
+  const b = document.createElement('b'); b.textContent = r.labelKey ? t(r.labelKey) : fileName(r);
+  const s = document.createElement('small'); s.textContent = t('clickOpen');
+  card.append('▸', b, s); card.onclick = () => showResult(r); out.appendChild(card);
+}
+$('tabCode').onclick = () => showTab('code');
+$('tabRun').onclick = () => showTab('run');
+$('pcopy').onclick = () => current?.code && navigator.clipboard.writeText(current.code);
+$('pdl').onclick = () => {
+  if (!current) return;
+  const a = document.createElement('a');
+  a.href = current.url || URL.createObjectURL(new Blob([current.code], { type: 'text/plain' }));
+  a.download = fileName(current); a.click();
+};
+
+// ---------- attachments ----------
+const loaded = {};
+function lib(src) { return loaded[src] ??= new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => fail(new Error('library failed to load (internet needed)')); document.head.appendChild(s); }); }
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const MAMMOTH = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+const XLSXJS = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+const TESS = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+let ocrWorker = null;
+
+async function extract(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (file.type.startsWith('image/')) {
+    const dataUrl = await new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(file); });
+    const out = { kind: 'image', image: dataUrl.split(',')[1] };
+    if (!canSeeImages() && $('mode').value !== 'video') {
+      await lib(TESS);
+      ocrWorker ??= await Tesseract.createWorker(['tha', 'eng', 'chi_sim']);
+      const { data } = await ocrWorker.recognize(file);
+      out.text = data.text.trim(); out.note = out.text ? 'OCR' : '—';
+    } else out.note = '🖼';
+    return out;
+  }
+  if (ext === 'pdf') {
+    await lib(PDFJS);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS.replace('pdf.min.js', 'pdf.worker.min.js');
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    const pages = [];
+    for (let i = 1; i <= pdf.numPages; i++) { const c = await (await pdf.getPage(i)).getTextContent(); pages.push(c.items.map(x => x.str + (x.hasEOL ? '\n' : ' ')).join('')); }
+    return { kind: 'doc', text: pages.map((s, i) => `--- page ${i + 1} ---\n${s.trim()}`).join('\n'), note: `${pdf.numPages} ${t('pages')}` };
+  }
+  if (ext === 'docx') { await lib(MAMMOTH); const r = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() }); return { kind: 'doc', text: r.value }; }
+  if (ext === 'xlsx' || ext === 'xls') {
+    await lib(XLSXJS);
+    const wb = XLSX.read(await file.arrayBuffer());
+    return { kind: 'doc', text: wb.SheetNames.map(n => `--- sheet: ${n} ---\n` + XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n'), note: `${wb.SheetNames.length} sheet` };
+  }
+  return { kind: 'doc', text: await file.text() };
+}
+function addFiles(files) {
+  for (const file of files) {
+    const item = { name: file.name, ready: false };
+    pending.push(item);
+    extract(file).then(r => {
+      Object.assign(item, r, { ready: true });
+      if (item.text && item.text.length > MAX_FILE_CHARS) item.text = item.text.slice(0, MAX_FILE_CHARS);
+      if (!item.note) item.note = item.text ? `${item.text.length.toLocaleString()} ${t('chars')}` : '';
+    }).catch(e => { item.error = e.message; item.ready = true; }).finally(drawPending);
+  }
+  drawPending();
+}
+$('attach').onclick = () => $('file').click();
+$('file').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
+input.addEventListener('paste', e => { const f = [...e.clipboardData.files]; if (f.length) { e.preventDefault(); addFiles(f); } });
+let dragDepth = 0;
+addEventListener('dragenter', e => { if (e.dataTransfer.types.includes('Files')) { dragDepth++; document.body.classList.add('drag'); } });
+addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('drag'); } });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; document.body.classList.remove('drag'); if (e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]); });
+
+// ---------- streaming helper ----------
+async function stream(body, onEvent, signal) {
+  const r = await fetch('/api/chat', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(await r.text());
+  const reader = r.body.getReader(), dec = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop();
+    for (const line of lines) if (line.trim()) { const ev = JSON.parse(line); if (ev.type === 'error') throw new Error(ev.text); onEvent(ev); }
+  }
+}
+
+// ---------- chat ----------
+const RX_IDEA = /ไอเดีย|idea|ออกแบบ|design|\bui\b|\bux\b|หน้าจอ|หน้าเว็บ|เว็บ|website|web ?app|แอป|\bapp\b|dashboard|แดชบอร์ด|landing|mockup|prototype|ระบบ|system|platform|แพลตฟอร์ม|โปรเจกต์|project/i;
+const RX_DIAGRAM = /system analysis|วิเคราะห์ระบบ|สถาปัตยกรรม|architecture|flow ?chart|โฟลว์|er ?diagram|ฐานข้อมูล|database schema|sequence|use ?case|uml/i;
+
+async function chat(text, files) {
+  const mode = $('mode').value;
+  const display = text || (mode === 'video' ? t('animate') : t('summarize'));
+  let content = display, budget = MAX_TOTAL_CHARS;
+  const images = [];
+  for (const f of files) {
+    if (f.error) continue;
+    if (f.image && (canSeeImages() || mode === 'video' || modelSel.value === 'auto')) images.push(f.image);
+    if (f.text) { const s = f.text.slice(0, Math.max(0, budget)); budget -= s.length; content += `\n\n[ไฟล์แนบ: ${f.name}]\n\`\`\`\n${s}\n\`\`\``; }
+  }
+  const msgIndex = history.length;
+  history.push({ role: 'user', content, display, files: files.map(f => ({ name: f.name, kind: f.kind, note: f.note })), ...(images.length ? { images } : {}) });
+  userBubble(display, files);
+
+  const out = bubble('assistant');
+  const meta = document.createElement('div'); meta.className = 'meta';
+  const body = document.createElement('div');
+  out.append(meta, body);
+  const note = s => { const d = document.createElement('div'); d.textContent = s; meta.appendChild(d); log.scrollTop = log.scrollHeight; return d; };
+
+  busy = new AbortController();
+  send.textContent = t('stop'); send.classList.add('stop');
+  let reply = '', progressEl = null, usedMedia = false;
+  const media = [];
+  try {
+    await stream({ model: modelSel.value, mode, quality: $('quality').value, messages: history.map(({ role, content, images }) => ({ role, content, ...(images ? { images } : {}) })),
+      skills: [...selectedSkills], system: $('system').value.trim(), language: $('replyLang').value, web: $('web').checked, accurate: $('accurate').checked }, ev => {
+      if (ev.type === 'token') { reply += ev.text; renderText(body, reply); log.scrollTop = log.scrollHeight; }
+      else if (ev.type === 'status') note(ev.text);
+      else if (ev.type === 'route') note(`${t('usingModel')} ${ev.model} (${ev.why})`);
+      else if (ev.type === 'tool') note(`${t('calling')} ${ev.name} ${JSON.stringify(ev.args).slice(0, 120)}`);
+      else if (ev.type === 'progress') { progressEl ??= note(''); progressEl.textContent = `${t('progress')} ${ev.value}/${ev.max} ${t('steps')} (${Math.round(100 * ev.value / ev.max)}%)`; }
+      else if (ev.type === 'sources' && ev.sources.length) {
+        const src = document.createElement('div'); src.className = 'sources';
+        src.append(...ev.sources.map(s => { const a = document.createElement('a'); a.href = s.url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = `[${s.n}] ${s.title || s.url}`; a.title = s.url; return a; }));
+        out.appendChild(src);
+      }
+      else if (ev.type === 'media') {
+        usedMedia = true;
+        const md = { kind: ev.kind, url: ev.url, prompt: ev.prompt };
+        media.push(md); mediaBox(out, md);
+        addResult({ kind: ev.kind, url: ev.url, prompt: ev.prompt, msg: msgIndex + 1 });
+        reply += `${reply ? '\n' : ''}[${t('created_' + ev.kind)}: ${ev.url}] prompt: ${ev.prompt}`;
+      }
+      else if (ev.type === 'approve') approvalCard(out, ev);
+    }, busy.signal);
+    if (!meta.childElementCount) meta.remove();
+    history.push({ role: 'assistant', content: reply, ...(media.length ? { media } : {}) });
+    // code in the answer -> results panel
+    const blocks = blocksOf(reply), art = pickArtifact(blocks);
+    if (art) { const r = addResult({ kind: 'code', ...art, all: blocks, msg: msgIndex + 1 }); resultCard(out, r); }
+    else if (!usedMedia && $('preview').checked && reply.length > 200 && (hasSkill('design', 'vibe-code', 'system-analysis') || RX_IDEA.test(display))) {
+      await mockup(out, display, reply, msgIndex + 1);
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') { history.push({ role: 'assistant', content: reply }); note(t('stopped')); }
+    else { body.textContent = `${t('error')}: ${e.message}`; history.pop(); }
+  } finally {
+    busy = null; send.textContent = t('send'); send.classList.remove('stop'); input.focus();
+    saveChat();
+  }
+}
+
+// ideas -> an automatic visual preview in panel B (HTML mockup, or Mermaid diagram for system analysis)
+async function mockup(out, question, answer, msg) {
+  const kind = (hasSkill('system-analysis') && !hasSkill('design', 'vibe-code')) || RX_DIAGRAM.test(question) ? 'diagram' : 'ui';
+  const status = document.createElement('div'); status.className = 'meta'; status.textContent = '▸ ' + t(kind === 'diagram' ? 'diagramMaking' : 'mockupMaking'); out.appendChild(status);
+  const live = { kind: 'code', lang: kind === 'diagram' ? 'mermaid' : 'html', code: '', name: kind === 'diagram' ? 'diagram.mmd' : 'mockup.html' };
+  current = live; $('pname').textContent = t(kind === 'diagram' ? 'diagramMaking' : 'mockupMaking'); $('tabs').style.visibility = 'visible'; showTab('code');
+  document.body.classList.add('panel-open');
+  let text = '';
+  await stream({ mode: 'mockup', kind, idea: `User: ${question}\n\nAssistant: ${answer}` }, ev => {
+    if (ev.type === 'token') { text += ev.text; live.code = text; const c = $('pbody').querySelector('code'); if (c) { c.textContent = text; c.parentElement.scrollTop = 1e9; } }
+  }, busy.signal);
+  const block = blocksOf(text).find(b => b.lang === live.lang) || blocksOf(text)[0];
+  status.remove();
+  if (!block) return;
+  const r = addResult({ kind: 'code', lang: block.lang, code: block.code, name: live.name, labelKey: kind === 'diagram' ? 'diagramCard' : 'mockupCard', msg }, true);
+  resultCard(out, r);
+}
+
+function approvalCard(out, ev) {
+  const box = document.createElement('div'); box.className = 'approve';
+  const h = document.createElement('div'); h.textContent = '⚠ ' + t('approveTitle');
+  const pre = document.createElement('pre'); const c = document.createElement('code'); c.textContent = ev.command; pre.appendChild(c);
+  const small = document.createElement('div'); small.className = 'status'; small.textContent = ev.cwd;
+  const row = document.createElement('div'); row.className = 'row';
+  const yes = document.createElement('button'); yes.className = 'yes'; yes.type = 'button'; yes.textContent = t('approve');
+  const no = document.createElement('button'); no.className = 'no'; no.type = 'button'; no.textContent = t('deny');
+  const answer = async ok => {
+    yes.disabled = no.disabled = true;
+    await fetch('/api/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ev.id, ok }) });
+    row.replaceChildren(ok ? '✔ ' + t('approved') : '✖ ' + t('denied'));
+  };
+  yes.onclick = () => answer(true); no.onclick = () => answer(false);
+  row.append(yes, no); box.append(h, pre, small, row); out.appendChild(box); log.scrollTop = log.scrollHeight;
+}
+
+$('form').addEventListener('submit', e => {
+  e.preventDefault();
+  if (busy) { busy.abort(); return; }
+  if (pending.some(f => !f.ready)) { $('status').textContent = t('waitFiles'); return; }
+  const s = input.value.trim();
+  if (!s && !pending.length) return;
+  const files = pending; pending = []; drawPending();
+  input.value = '';
+  chat(s, files);
+});
+input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('form').requestSubmit(); } });
+
+// ---------- resizable panels: drag the dividers, double-click to reset ----------
+function resizer(gut, target, key, edge, min, maxFrac) {
+  const apply = w => {
+    // keep the chat column usable (>= 380 px) next to the other side bar
+    const other = target.id === 'panel' ? $('side') : $('panel');
+    const otherW = getComputedStyle(other).position === 'fixed' || getComputedStyle(other).display === 'none' ? 0 : other.getBoundingClientRect().width;
+    const max = Math.max(min, Math.min(window.innerWidth * maxFrac, window.innerWidth - otherW - 380));
+    w = Math.min(max, Math.max(min, w));
+    target.style.width = w + 'px'; target.style.maxWidth = 'none'; target.style.minWidth = '0';
+    return w;
+  };
+  const saved = +store.get(key, 0);
+  if (saved) apply(saved);
+  gut.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    gut.setPointerCapture(e.pointerId);
+    gut.classList.add('active'); document.body.classList.add('resizing');
+    const move = ev => apply(edge === 'left' ? ev.clientX - target.getBoundingClientRect().left : target.getBoundingClientRect().right - ev.clientX);
+    const up = () => {
+      gut.releasePointerCapture(e.pointerId);
+      gut.classList.remove('active'); document.body.classList.remove('resizing');
+      gut.removeEventListener('pointermove', move); gut.removeEventListener('pointerup', up);
+      store.set(key, Math.round(target.getBoundingClientRect().width));
+    };
+    gut.addEventListener('pointermove', move); gut.addEventListener('pointerup', up);
+  });
+  gut.addEventListener('dblclick', () => { target.style.width = target.style.maxWidth = target.style.minWidth = ''; store.set(key, ''); });
+  addEventListener('resize', () => { if (target.style.width) apply(parseFloat(target.style.width)); });
+}
+resizer($('gutA'), $('side'), 'sideWidth', 'left', 180, 0.35);
+resizer($('gutB'), $('panel'), 'panelWidth', 'right', 280, 0.75);
+
+setTheme(store.get('theme', 'dark'));
+applyI18n();
+info(); setInterval(info, 15000);
+loadChats();
+</script>
+</body>
+</html>

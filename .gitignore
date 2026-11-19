@@ -1,0 +1,22 @@
+# large binaries / downloads (re-created by the scripts)
+runtime/
+models/
+ollama-store/
+datasets/
+*.gguf
+*.safetensors
+eval/data/
+
+# dependencies
+node_modules/
+
+# local state and secrets
+bridge/keys.json
+logs/
+media/
+chats/
+workspace/
+*.db
+*.pem
+*_ed25519*
+.env

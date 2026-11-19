@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "files": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem@2.1.0", "D:\\ai-midel\\workspace"],
+      "mkdirs": ["D:\\ai-midel\\workspace"]
+    },
+    "db": {
+      "command": "npx",
+      "args": ["-y", "@bytebase/dbhub@1.5.1", "--dsn", "sqlite:///D:/ai-midel/workspace/data/app.db"],
+      "mkdirs": ["D:\\ai-midel\\workspace\\data"]
+    },
+    "postgres_example": {
+      "disabled": true,
+      "command": "npx",
+      "args": ["-y", "@bytebase/dbhub@1.5.1", "--dsn", "postgres://USER:PASSWORD@HOST:5432/DBNAME?sslmode=disable"]
+    },
+    "mysql_example": {
+      "disabled": true,
+      "command": "npx",
+      "args": ["-y", "@bytebase/dbhub@1.5.1", "--dsn", "mysql://USER:PASSWORD@HOST:3306/DBNAME"]
+    },
+    "sqlserver_example": {
+      "disabled": true,
+      "command": "npx",
+      "args": ["-y", "@bytebase/dbhub@1.5.1", "--dsn", "sqlserver://USER:PASSWORD@HOST:1433/DBNAME"]
+    }
+  }
+}
