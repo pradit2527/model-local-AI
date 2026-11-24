@@ -56,7 +56,7 @@ def main():
 
     if "--merge-only" not in sys.argv:
         model = FastLanguageModel.get_peft_model(
-            model, r=16, lora_alpha=32, lora_dropout=0, bias="none",
+            model, r=16, lora_alpha=16, lora_dropout=0, bias="none",   # round 2: alpha 32 -> 16
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
             use_gradient_checkpointing="unsloth", random_state=42,
         )
@@ -69,7 +69,7 @@ def main():
         cfg = dict(
             dataset_text_field="text", dataset_num_proc=1, packing=False,
             per_device_train_batch_size=1, gradient_accumulation_steps=16, num_train_epochs=1,
-            learning_rate=1e-4, lr_scheduler_type="cosine", warmup_ratio=0.03, weight_decay=0.01,
+            learning_rate=5e-5, lr_scheduler_type="cosine", warmup_ratio=0.03, weight_decay=0.01,
             optim="adamw_8bit", bf16=True, logging_steps=10, save_steps=100, save_total_limit=2,
             output_dir=str(OUT / "out"), report_to="none", seed=42,
         )

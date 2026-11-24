@@ -346,7 +346,7 @@ async function freeGpuForComfy() {
 
 // Turn a short (possibly Thai) request into a detailed English prompt; image/video models follow those best.
 async function enhancePrompt(kind, text, models) {
-  const llm = ['absolute-ai', 'qwen2.5-coder:7b', 'dan-l3-r1-8b', 'dan-qwen3'].find(m => models.includes(m));
+  const llm = ['qwen2.5-coder:7b', 'dan-l3-r1-8b', 'absolute-ai', 'dan-qwen3'].find(m => models.includes(m));
   if (!llm) return text;
   const how = kind === 'video'
     ? 'Write ONE detailed English prompt for a text-to-video model: subject and appearance, action and motion over time, camera movement, setting, lighting, mood, style, and "sharp focus, high detail, 4k".'
@@ -397,7 +397,7 @@ const RX_VIDEO = /(สร้าง|ทำ|เจน|gen(erate)?|make|create|rend
 const RX_IMAGE = /(สร้าง|วาด|ทำ|เจน|gen(erate)?|draw|make|create|paint|render|design).{0,25}(รูปภาพ|ภาพ|รูป(?!แบบ)|image|picture|photo|illustration|poster|โปสเตอร์|wallpaper|artwork)/i;
 const RX_CODE = /```|\b(code|coding|function|class|bug|debug|error|exception|html|css|javascript|typescript|python|react|next\.?js|node|api|sql|regex|script|component|vibe ?cod\w*|deploy)\b|โค้ด|โคด|เขียนโปรแกรม|เขียนเว็บ|ทำเว็บ|แอป/i;
 
-const CODER = ['qwen3.6:35b-a3b-coding', 'qwen2.5-coder:7b'];
+const CODER = ['qwen3.6:35b-a3b-coding', 'qwen2.5-coder:7b', 'absolute-ai'];   // absolute-ai: HumanEval 50.6 vs 42.7 for its base
 const VISION = ['gemma4:12b-it-qat', 'qwen2.5vl:7b'];
 const MULTI = ['gemma4:12b-it-qat'];
 const CODE_SKILLS = new Set(['developer', 'design', 'vibe-code', 'vscode', 'database']);
@@ -405,7 +405,8 @@ const CODE_SKILLS = new Set(['developer', 'design', 'vibe-code', 'vscode', 'data
 function routeRequest({ text, hasImage, skills = [], mode, models, language }) {
   const have = m => models.includes(m);
   const pick = list => list.find(have);
-  const general = ['absolute-ai', 'dan-l3-r1-8b', 'dan-qwen3'].find(have);
+  // dan-l3-r1-8b stays the general default: the fine-tune scored lower on GSM8K (63 vs 76) and ARC (49 vs 71)
+  const general = ['dan-l3-r1-8b', 'absolute-ai', 'dan-qwen3'].find(have);
   if (mode === 'video' || (mode === 'auto' && RX_VIDEO.test(text))) return { kind: 'video' };
   if (mode === 'image' || (mode === 'auto' && !hasImage && RX_IMAGE.test(text))) return { kind: 'image' };
   if (hasImage && pick(VISION)) return { kind: 'chat', model: pick(VISION), why: 'มีรูปแนบ' };
@@ -612,7 +613,7 @@ async function handleMockup(body, res) {
   res.on('close', () => abort.abort());
   try {
     const models = await listModels();
-    const model = CODER.find(m => models.includes(m)) || ['absolute-ai', 'dan-l3-r1-8b', 'dan-qwen3'].find(m => models.includes(m));
+    const model = CODER.find(m => models.includes(m)) || ['dan-l3-r1-8b', 'absolute-ai', 'dan-qwen3'].find(m => models.includes(m));
     send({ type: 'route', model, why: body.kind === 'diagram' ? 'ไดอะแกรม' : 'หน้าจอตัวอย่าง' });
     await freeGpuForLlm();
     const prompt = `${String(body.idea || '').slice(-12000)}\n\n---\n${body.kind === 'diagram' ? MOCKUP_DIAGRAM : MOCKUP_UI}`;

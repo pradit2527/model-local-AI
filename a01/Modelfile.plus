@@ -1,4 +1,4 @@
-FROM D:\ai-midel\train\merged
+FROM D:\ai-midel\train\gguf\absolute-ai-Q4_K_M.gguf
 
 # ChatML + Qwen2.5/Hermes-style tools: identical to render() in train.py, so Ollama can parse <tool_call> output.
 # No default system prompt and no extra rules are added.

@@ -30,7 +30,11 @@ if (-not (Test-Path "$root\train\merged\config.json")) {
     if (-not $trainOk) { Log 'FAILED: training, see train.log'; exit 1 }
 }
 
-Log 'importing into Ollama as absolute-ai (q4_K_M)'
-& "$root\runtime\ollama\ollama.exe" create absolute-ai -q q4_K_M -f "$root\Modelfile.plus" *> "$root\logs\ollama-create.log"
+# Ollama on Windows can only quantize safetensors through MLX (not shipped), so make the GGUF in WSL
+Log 'converting to GGUF Q4_K_M in WSL'
+wsl.exe -d Ubuntu-24.04 -- bash /mnt/d/ai-midel/wsl-gguf.sh *> "$root\logs\gguf.log"
+if (-not (Select-String -Path "$root\logs\gguf.log" -Pattern 'GGUF DONE' -Quiet)) { Log 'FAILED: gguf conversion, see gguf.log'; exit 1 }
+Log 'importing into Ollama as absolute-ai'
+& "$root\runtime\ollama\ollama.exe" create absolute-ai -f "$root\Modelfile.plus" *> "$root\logs\ollama-create.log"
 if ($LASTEXITCODE -ne 0) { Log 'FAILED: ollama create, see ollama-create.log'; exit 1 }
 Log 'PIPELINE DONE'

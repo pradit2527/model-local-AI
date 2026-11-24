@@ -20,3 +20,7 @@ workspace/
 *.pem
 *_ed25519*
 .env
+
+# python
+__pycache__/
+*.pyc
