@@ -601,10 +601,31 @@ const fileName = r => r.name || (r.kind === 'image' || r.kind === 'video' ? r.ur
 const noClose = s => s.replace(/<\/script/gi, '<\\/script');
 // same thin, hover-only scrollbars inside previews
 const SCROLL_CSS = '<style>html,body,*{scrollbar-width:thin;scrollbar-color:transparent transparent}html:hover,body:hover,*:hover{scrollbar-color:rgba(128,128,128,.4) transparent}</style>';
+// Generated apps call their own backend (fetch('/api/generate'), polling '/api/job/:id'). The preview has only the
+// front end, so those calls failed ("An error occurred"). This stub answers same-app API calls with plausible JSON:
+// POST creates a job, GETs for that job go processing -> completed (with a sample video if one was generated here).
+// External http(s) URLs still go to the network.
+function mockApiScript() {
+  const vid = results.filter(r => r.kind === 'video').at(-1), img = results.filter(r => r.kind === 'image').at(-1);
+  const abs = r => r ? new URL(r.url, location.href).href : null;
+  return `<script>(function(){var real=window.fetch,jobs={},n=0,SV=${JSON.stringify(abs(vid))},SI=${JSON.stringify(abs(img))};
+function local(u){return !/^(https?:|data:|blob:|\\/\\/)/i.test(u)}
+function badge(){if(document.getElementById('__mockapi'))return;var d=document.createElement('div');d.id='__mockapi';d.textContent='Preview: /api calls simulated (no backend)';d.style.cssText='position:fixed;right:8px;bottom:8px;z-index:2147483647;background:rgba(0,0,0,.72);color:#8ff0c0;font:12px system-ui,sans-serif;padding:4px 8px;border-radius:6px;pointer-events:none';(document.body||document.documentElement).appendChild(d)}
+function reply(o){return new Promise(function(r){setTimeout(function(){r(new Response(JSON.stringify(o),{status:200,headers:{'Content-Type':'application/json'}}))},350)})}
+window.fetch=function(input,init){var url=String(input&&input.url||input),method=String((init&&init.method)||(input&&input.method)||'GET').toUpperCase();
+if(!local(url))return real.apply(this,arguments);badge();console.info('[preview mock api]',method,url);
+var img=null,b=init&&init.body;if(b&&typeof FormData!=='undefined'&&b instanceof FormData)b.forEach(function(v){if(!img&&v instanceof Blob)img=URL.createObjectURL(v)});
+var id=Object.keys(jobs).filter(function(k){return url.indexOf(k)>=0})[0];
+if(!id&&method!=='GET'){id='demo-'+(++n);jobs[id]={polls:0,img:img};return reply({success:true,ok:true,id:id,jobId:id,job:{id:id,status:'pending'},status:'pending',progress:0,message:'Job created (preview mock)'})}
+if(id){var j=jobs[id];j.polls++;var done=j.polls>=3,st=done?'completed':'processing',out=done?(SV||SI||j.img):null;
+return reply({success:true,ok:true,id:id,jobId:id,status:st,progress:done?100:j.polls*33,url:out,videoUrl:done?SV:null,outputUrl:out,resultUrl:out,imageUrl:j.img||SI,result:done?{url:out,videoUrl:SV}:null,job:{id:id,status:st}})}
+return reply({success:true,ok:true,data:[],items:[],results:[],jobs:Object.keys(jobs).map(function(k){return{id:k,status:jobs[k].polls>=3?'completed':'processing'}})})};})();<\/script>`;
+}
 function withScrollCss(doc) {
-  if (/<head[^>]*>/i.test(doc)) return doc.replace(/<head[^>]*>/i, m => m + SCROLL_CSS);
-  if (/<!doctype[^>]*>/i.test(doc)) return doc.replace(/<!doctype[^>]*>/i, m => m + SCROLL_CSS);
-  return SCROLL_CSS + doc;
+  const head = SCROLL_CSS + mockApiScript();
+  if (/<head[^>]*>/i.test(doc)) return doc.replace(/<head[^>]*>/i, m => m + head);
+  if (/<!doctype[^>]*>/i.test(doc)) return doc.replace(/<!doctype[^>]*>/i, m => m + head);
+  return head + doc;
 }
 
 function buildDoc(r) {
