@@ -346,7 +346,7 @@ async function freeGpuForComfy() {
 
 // Turn a short (possibly Thai) request into a detailed English prompt; image/video models follow those best.
 async function enhancePrompt(kind, text, models) {
-  const llm = ['qwen2.5-coder:7b', 'dan-l3-r1-8b', 'absolute-ai', 'dan-qwen3'].find(m => models.includes(m));
+  const llm = ['qwen2.5-coder:7b', 'absolute-ai', 'dan-l3-r1-8b', 'dan-qwen3'].find(m => models.includes(m));
   if (!llm) return text;
   const how = kind === 'video'
     ? 'Write ONE detailed English prompt for a text-to-video model: subject and appearance, action and motion over time, camera movement, setting, lighting, mood, style, and "sharp focus, high detail, 4k".'
@@ -397,16 +397,17 @@ const RX_VIDEO = /(สร้าง|ทำ|เจน|gen(erate)?|make|create|rend
 const RX_IMAGE = /(สร้าง|วาด|ทำ|เจน|gen(erate)?|draw|make|create|paint|render|design).{0,25}(รูปภาพ|ภาพ|รูป(?!แบบ)|image|picture|photo|illustration|poster|โปสเตอร์|wallpaper|artwork)/i;
 const RX_CODE = /```|\b(code|coding|function|class|bug|debug|error|exception|html|css|javascript|typescript|python|react|next\.?js|node|api|sql|regex|script|component|vibe ?cod\w*|deploy)\b|โค้ด|โคด|เขียนโปรแกรม|เขียนเว็บ|ทำเว็บ|แอป/i;
 
-const CODER = ['qwen3.6:35b-a3b-coding', 'qwen2.5-coder:7b', 'absolute-ai'];   // absolute-ai: HumanEval 50.6 vs 42.7 for its base
+const CODER = ['qwen3.6:35b-a3b-coding', 'qwen2.5-coder:7b', 'absolute-ai'];   // absolute-ai v2: HumanEval 52.4 vs 42.7 for its base
 const VISION = ['gemma4:12b-it-qat', 'qwen2.5vl:7b'];
 const MULTI = ['gemma4:12b-it-qat'];
+const NO_TOOLS = new Set(['typhoon']);
 const CODE_SKILLS = new Set(['developer', 'design', 'vibe-code', 'vscode', 'database']);
 
 function routeRequest({ text, hasImage, skills = [], mode, models, language }) {
   const have = m => models.includes(m);
   const pick = list => list.find(have);
-  // dan-l3-r1-8b stays the general default: the fine-tune scored lower on GSM8K (63 vs 76) and ARC (49 vs 71)
-  const general = ['dan-l3-r1-8b', 'absolute-ai', 'dan-qwen3'].find(have);
+  // absolute-ai v2 is the general default: GSM8K 74 / ARC 68 (base 76 / 71, within n=100 noise), Thai 26 vs 18, HumanEval 52.4 vs 42.7
+  const general = ['absolute-ai', 'dan-l3-r1-8b', 'dan-qwen3'].find(have);
   if (mode === 'video' || (mode === 'auto' && RX_VIDEO.test(text))) return { kind: 'video' };
   if (mode === 'image' || (mode === 'auto' && !hasImage && RX_IMAGE.test(text))) return { kind: 'image' };
   if (hasImage && pick(VISION)) return { kind: 'chat', model: pick(VISION), why: 'มีรูปแนบ' };
@@ -415,7 +416,7 @@ function routeRequest({ text, hasImage, skills = [], mode, models, language }) {
   const share = rx => (text.match(rx) || []).length / letters;
   if ((language === 'th' || (!language && share(/[฀-๿]/g) > 0.3)) && have('typhoon')) return { kind: 'chat', model: 'typhoon', why: 'ภาษาไทย' };
   // other non-Latin scripts (Chinese, Japanese, Korean, Arabic, Hindi, Russian, ...) or a chosen non-English language
-  if (((language && !['en', 'th'].includes(language)) || share(/[^\p{Script=Latin}฀-๿]/gu) > 0.3) && pick(MULTI)) return { kind: 'chat', model: pick(MULTI), why: 'หลายภาษา' };
+  if (((language && !['en', 'th'].includes(language)) || share(/[^\p{Script=Latin}฀-๿\s\d\p{P}\p{S}]/gu) > 0.3) && pick(MULTI)) return { kind: 'chat', model: pick(MULTI), why: 'หลายภาษา' };
   return { kind: 'chat', model: general, why: 'ทั่วไป' };
 }
 
@@ -566,13 +567,20 @@ async function handleChat(req, res) {
     if (system) sys.push(system);
     if (sys.length) messages.unshift({ role: 'system', content: sys.join('\n\n---\n\n') });
 
-    const toolDefs = useTools && caps.includes('tools') ? [...tools.values()].map(t => t.def) : undefined;
+    // typhoon (4B) answers "no function available" to a plain greeting when given tool schemas: chat only
+    const toolDefs = useTools && caps.includes('tools') && !NO_TOOLS.has(model) ? [...tools.values()].map(t => t.def) : undefined;
     // num_predict caps runaway generations (an 8B model can loop until the context is full and block the queue)
-    const options = { num_predict: 4096, ...(accurate ? { temperature: 0.2, top_p: 0.9 } : {}) };
+    // Thinking models (qwen3.6) think only in Accurate mode: on this 8 GB GPU a full think can eat the whole token
+    // budget before any answer appears (seen: 4096 thinking tokens, empty reply).
+    const thinking = caps.includes('thinking');
+    const think = thinking ? { think: !!accurate } : {};
+    // qwen3.6 writes long design documents (7k+ Thai chars) and does not loop like the 8B models, so it gets more room
+    // num_ctx: system prompt + skills + ~25 tool schemas alone are ~4k tokens, above some models' 4096 default (typhoon)
+    const options = { num_ctx: 12288, num_predict: thinking ? (accurate ? 16000 : 10000) : 4096, ...(accurate ? { temperature: 0.2, top_p: 0.9 } : {}) };
     for (let round = 0; round < 8; round++) {
       const r = await fetch(`${OLLAMA}/api/chat`, {
         method: 'POST', signal: abort.signal,
-        body: JSON.stringify({ model, messages, stream: true, options, ...(toolDefs ? { tools: toolDefs } : {}) }),
+        body: JSON.stringify({ model, messages, stream: true, options, ...think, ...(toolDefs ? { tools: toolDefs } : {}) }),
       });
       if (!r.ok) throw new Error(`Ollama: ${await r.text()}`);
       let content = '', calls = [], buf = '';
@@ -584,7 +592,12 @@ async function handleChat(req, res) {
           if (!line.trim()) continue;
           const j = JSON.parse(line);
           if (j.error) throw new Error(j.error);
+          if (j.message?.thinking) send({ type: 'thinking', text: j.message.thinking });
           if (j.message?.content) { content += j.message.content; send({ type: 'token', text: j.message.content }); }
+          if (j.done && j.done_reason === 'length' && !calls.length)
+            send({ type: 'token', text: content
+              ? '\n\n_(คำตอบยาวเกินเลยถูกตัด พิมพ์ "ต่อ" เพื่อให้เขียนต่อ)_'
+              : '(ใช้โทเคนหมดระหว่างคิด ยังไม่ได้คำตอบ ลองถามให้สั้นลง หรือปิดโหมด Accurate)' });
           if (j.message?.tool_calls) calls.push(...j.message.tool_calls);
         }
       }
@@ -613,12 +626,14 @@ async function handleMockup(body, res) {
   res.on('close', () => abort.abort());
   try {
     const models = await listModels();
-    const model = CODER.find(m => models.includes(m)) || ['dan-l3-r1-8b', 'absolute-ai', 'dan-qwen3'].find(m => models.includes(m));
+    const model = CODER.find(m => models.includes(m)) || ['absolute-ai', 'dan-l3-r1-8b', 'dan-qwen3'].find(m => models.includes(m));
     send({ type: 'route', model, why: body.kind === 'diagram' ? 'ไดอะแกรม' : 'หน้าจอตัวอย่าง' });
     await freeGpuForLlm();
     const prompt = `${String(body.idea || '').slice(-12000)}\n\n---\n${body.kind === 'diagram' ? MOCKUP_DIAGRAM : MOCKUP_UI}`;
+    // no hidden thinking: the preview should start streaming code at once
+    const think = (await capabilities(model)).includes('thinking') ? { think: false } : {};
     const r = await fetch(`${OLLAMA}/api/chat`, { method: 'POST', signal: abort.signal,
-      body: JSON.stringify({ model, stream: true, messages: [{ role: 'user', content: prompt }], options: { num_predict: 6000, temperature: 0.4 } }) });
+      body: JSON.stringify({ model, stream: true, ...think, messages: [{ role: 'user', content: prompt }], options: { num_ctx: 12288, num_predict: 8000, temperature: 0.4 } }) });
     if (!r.ok) throw new Error(`Ollama: ${await r.text()}`);
     let buf = '';
     const dec = new TextDecoder();

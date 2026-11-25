@@ -81,6 +81,9 @@
   .assistant { background:var(--bubble); border:1px solid var(--line); }
   .think { color:var(--muted); font-size:13px; border-left:2px solid var(--line); padding-left:8px; margin-bottom:6px; white-space:pre-wrap; }
   .meta { font-size:12px; color:var(--muted); margin-bottom:6px; font-family:ui-monospace, Consolas, monospace; }
+  .thinking { margin:0 0 8px; border:1px solid var(--line); border-radius:8px; background:rgba(127,127,127,.06); font-size:12.5px; color:var(--muted); }
+  .thinking summary { cursor:pointer; padding:6px 10px; user-select:none; font-family:ui-monospace, Consolas, monospace; }
+  .thinking > div { max-height:220px; overflow:auto; padding:0 10px 8px; white-space:pre-wrap; line-height:1.45; }
   .meta div::before { content:'▸ '; color:var(--accent-dim); }
   pre { position:relative; background:var(--code); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; margin:8px 0; }
   pre code { font:13px/1.5 ui-monospace, Consolas, monospace; color:var(--codetext); white-space:pre; }
@@ -281,7 +284,7 @@ const I18N = {
     ready:'พร้อม', tools:'tools', noOllama:'เชื่อมต่อ Ollama ไม่ได้', noBridge:'เชื่อมต่อ bridge ไม่ได้ (รัน a01.ps1)', usingModel:'ใช้โมเดล', progress:'ความคืบหน้า', steps:'ขั้น',
     approveTitle:'ขออนุมัติรันคำสั่ง', approve:'อนุมัติ', deny:'ไม่อนุมัติ', approved:'อนุมัติแล้ว', denied:'ไม่อนุมัติ', calling:'เรียกใช้',
     mockupMaking:'กำลังสร้างหน้าจอตัวอย่าง…', diagramMaking:'กำลังวาดไดอะแกรม…', mockupCard:'หน้าจอตัวอย่าง', diagramCard:'ไดอะแกรม', clickOpen:'คลิกเพื่อเปิดในแถบผลลัพธ์',
-    reading:'กำลังอ่าน…', unreadable:'อ่านไม่ได้', error:'ผิดพลาด', stopped:'หยุดแล้ว', dropHere:'วางไฟล์ที่นี่', waitFiles:'รออ่านไฟล์ให้เสร็จก่อน…',
+    reading:'กำลังอ่าน…', unreadable:'อ่านไม่ได้', error:'ผิดพลาด', stopped:'หยุดแล้ว', thinking:'กำลังคิด…', thought:'คิดเสร็จแล้ว', dropHere:'วางไฟล์ที่นี่', waitFiles:'รออ่านไฟล์ให้เสร็จก่อน…',
     summarize:'ช่วยอ่านและสรุปไฟล์ที่แนบมา', animate:'ทำให้ภาพนี้เคลื่อนไหวอย่างเป็นธรรมชาติ กล้องค่อย ๆ เคลื่อน', created_image:'สร้างรูปแล้ว', created_video:'สร้างวิดีโอแล้ว',
     dl_image:'ดาวน์โหลดรูป', dl_video:'ดาวน์โหลดวิดีโอ', deleteChat:'ลบแชทนี้?', auto:'⚡ อัตโนมัติ (รวมทุกโมเดล)', thisPc:'เครื่องนี้', chars:'ตัวอักษร', pages:'หน้า' },
   en: { newChat:'New chat', history:'History', noChats:'No chats yet', mode_auto:'Mode: Auto', mode_chat:'💬 Chat', mode_image:'🖼 Create image', mode_video:'🎬 Create video',
@@ -294,7 +297,7 @@ const I18N = {
     ready:'Ready', tools:'tools', noOllama:'Cannot reach Ollama', noBridge:'Cannot reach the bridge (run a01.ps1)', usingModel:'Using model', progress:'Progress', steps:'steps',
     approveTitle:'Approve this command?', approve:'Approve', deny:'Deny', approved:'Approved', denied:'Denied', calling:'Calling',
     mockupMaking:'Building a preview screen…', diagramMaking:'Drawing a diagram…', mockupCard:'Preview screen', diagramCard:'Diagram', clickOpen:'Click to open in the results panel',
-    reading:'Reading…', unreadable:'Unreadable', error:'Error', stopped:'Stopped', dropHere:'Drop files here', waitFiles:'Waiting for files to be read…',
+    reading:'Reading…', unreadable:'Unreadable', error:'Error', stopped:'Stopped', thinking:'Thinking…', thought:'Thought', dropHere:'Drop files here', waitFiles:'Waiting for files to be read…',
     summarize:'Please read and summarize the attached files', animate:'Animate this image naturally with a slow camera move', created_image:'Image created', created_video:'Video created',
     dl_image:'Download image', dl_video:'Download video', deleteChat:'Delete this chat?', auto:'⚡ Auto (all models)', thisPc:'this PC', chars:'chars', pages:'pages' },
   zh: { newChat:'新对话', history:'历史记录', noChats:'暂无对话', mode_auto:'模式：自动', mode_chat:'💬 对话', mode_image:'🖼 生成图片', mode_video:'🎬 生成视频',
@@ -307,7 +310,7 @@ const I18N = {
     ready:'就绪', tools:'工具', noOllama:'无法连接 Ollama', noBridge:'无法连接 bridge（运行 a01.ps1）', usingModel:'使用模型', progress:'进度', steps:'步',
     approveTitle:'是否允许运行此命令？', approve:'允许', deny:'拒绝', approved:'已允许', denied:'已拒绝', calling:'调用',
     mockupMaking:'正在生成界面预览…', diagramMaking:'正在绘制图表…', mockupCard:'界面预览', diagramCard:'图表', clickOpen:'点击在结果面板中打开',
-    reading:'读取中…', unreadable:'无法读取', error:'错误', stopped:'已停止', dropHere:'将文件拖到这里', waitFiles:'请等待文件读取完成…',
+    reading:'读取中…', unreadable:'无法读取', error:'错误', stopped:'已停止', thinking:'思考中…', thought:'已思考', dropHere:'将文件拖到这里', waitFiles:'请等待文件读取完成…',
     summarize:'请阅读并总结附件', animate:'让这张图片自然地动起来，镜头缓慢移动', created_image:'图片已生成', created_video:'视频已生成',
     dl_image:'下载图片', dl_video:'下载视频', deleteChat:'删除此对话？', auto:'⚡ 自动（全部模型）', thisPc:'本机', chars:'字', pages:'页' },
   ja: { newChat:'新しいチャット', history:'履歴', noChats:'チャットはまだありません', mode_auto:'モード：自動', mode_chat:'💬 チャット', mode_image:'🖼 画像を生成', mode_video:'🎬 動画を生成',
@@ -320,7 +323,7 @@ const I18N = {
     ready:'準備完了', tools:'ツール', noOllama:'Ollama に接続できません', noBridge:'bridge に接続できません（a01.ps1 を実行）', usingModel:'使用モデル', progress:'進捗', steps:'ステップ',
     approveTitle:'このコマンドを実行しますか？', approve:'許可', deny:'拒否', approved:'許可しました', denied:'拒否しました', calling:'呼び出し',
     mockupMaking:'画面プレビューを作成中…', diagramMaking:'図を作成中…', mockupCard:'画面プレビュー', diagramCard:'図', clickOpen:'クリックして結果パネルで開く',
-    reading:'読み込み中…', unreadable:'読み込めません', error:'エラー', stopped:'停止しました', dropHere:'ここにファイルをドロップ', waitFiles:'ファイルの読み込みを待っています…',
+    reading:'読み込み中…', unreadable:'読み込めません', error:'エラー', stopped:'停止しました', thinking:'考え中…', thought:'思考完了', dropHere:'ここにファイルをドロップ', waitFiles:'ファイルの読み込みを待っています…',
     summarize:'添付ファイルを読んで要約してください', animate:'この画像を自然に動かし、カメラをゆっくり動かす', created_image:'画像を作成しました', created_video:'動画を作成しました',
     dl_image:'画像をダウンロード', dl_video:'動画をダウンロード', deleteChat:'このチャットを削除しますか？', auto:'⚡ 自動（全モデル）', thisPc:'このPC', chars:'文字', pages:'ページ' },
   ko: { newChat:'새 채팅', history:'기록', noChats:'아직 채팅이 없습니다', mode_auto:'모드: 자동', mode_chat:'💬 채팅', mode_image:'🖼 이미지 생성', mode_video:'🎬 동영상 생성',
@@ -333,7 +336,7 @@ const I18N = {
     ready:'준비됨', tools:'도구', noOllama:'Ollama에 연결할 수 없음', noBridge:'bridge에 연결할 수 없음 (a01.ps1 실행)', usingModel:'사용 모델', progress:'진행', steps:'단계',
     approveTitle:'이 명령을 실행할까요?', approve:'허용', deny:'거부', approved:'허용됨', denied:'거부됨', calling:'호출',
     mockupMaking:'화면 미리보기 생성 중…', diagramMaking:'다이어그램 그리는 중…', mockupCard:'화면 미리보기', diagramCard:'다이어그램', clickOpen:'클릭하여 결과 패널에서 열기',
-    reading:'읽는 중…', unreadable:'읽을 수 없음', error:'오류', stopped:'중지됨', dropHere:'여기에 파일을 놓으세요', waitFiles:'파일을 읽는 중입니다…',
+    reading:'읽는 중…', unreadable:'읽을 수 없음', error:'오류', stopped:'중지됨', thinking:'생각 중…', thought:'생각 완료', dropHere:'여기에 파일을 놓으세요', waitFiles:'파일을 읽는 중입니다…',
     summarize:'첨부 파일을 읽고 요약해 주세요', animate:'이 이미지를 자연스럽게 움직이고 카메라를 천천히 이동', created_image:'이미지 생성됨', created_video:'동영상 생성됨',
     dl_image:'이미지 다운로드', dl_video:'동영상 다운로드', deleteChat:'이 채팅을 삭제할까요?', auto:'⚡ 자동 (모든 모델)', thisPc:'이 PC', chars:'자', pages:'페이지' },
 };
@@ -821,12 +824,24 @@ async function chat(text, files) {
 
   busy = new AbortController();
   send.textContent = t('stop'); send.classList.add('stop');
-  let reply = '', progressEl = null, usedMedia = false;
+  let reply = '', progressEl = null, usedMedia = false, thinkBox = null, thinkSum = null, thinkTxt = null, thinkT0 = 0;
   const media = [];
   try {
     await stream({ model: modelSel.value, mode, quality: $('quality').value, messages: history.map(({ role, content, images }) => ({ role, content, ...(images ? { images } : {}) })),
       skills: [...selectedSkills], system: $('system').value.trim(), language: $('replyLang').value, web: $('web').checked, accurate: $('accurate').checked }, ev => {
-      if (ev.type === 'token') { reply += ev.text; renderText(body, reply); log.scrollTop = log.scrollHeight; }
+      if (ev.type === 'token') {
+        if (thinkBox && !thinkBox.dataset.closed) { thinkBox.open = false; thinkBox.dataset.closed = 1; thinkSum.textContent = `${t('thought')} (${Math.round((Date.now() - thinkT0) / 1000)}s)`; }
+        reply += ev.text; renderText(body, reply); log.scrollTop = log.scrollHeight;
+      }
+      else if (ev.type === 'thinking') {
+        if (!thinkBox) {
+          thinkBox = document.createElement('details'); thinkBox.className = 'thinking'; thinkBox.open = true;
+          thinkSum = document.createElement('summary'); thinkTxt = document.createElement('div');
+          thinkBox.append(thinkSum, thinkTxt); out.insertBefore(thinkBox, body); thinkT0 = Date.now();
+        }
+        thinkSum.textContent = `${t('thinking')} ${Math.round((Date.now() - thinkT0) / 1000)}s`;
+        thinkTxt.textContent += ev.text; thinkTxt.scrollTop = 1e9; log.scrollTop = log.scrollHeight;
+      }
       else if (ev.type === 'status') note(ev.text);
       else if (ev.type === 'route') note(`${t('usingModel')} ${ev.model} (${ev.why})`);
       else if (ev.type === 'tool') note(`${t('calling')} ${ev.name} ${JSON.stringify(ev.args).slice(0, 120)}`);
@@ -863,16 +878,29 @@ async function chat(text, files) {
 }
 
 // ideas -> an automatic visual preview in panel B (HTML mockup, or Mermaid diagram for system analysis)
+// code inside the first ``` fence, also while the closing fence has not arrived yet
+const fenceBody = s => { const m = s.match(/```[\w-]*[^\n]*\n([\s\S]*?)(```|$)/); return m ? m[1] : (/^\s*</.test(s) ? s : ''); };
+
 async function mockup(out, question, answer, msg) {
   const kind = (hasSkill('system-analysis') && !hasSkill('design', 'vibe-code')) || RX_DIAGRAM.test(question) ? 'diagram' : 'ui';
   const status = document.createElement('div'); status.className = 'meta'; status.textContent = '▸ ' + t(kind === 'diagram' ? 'diagramMaking' : 'mockupMaking'); out.appendChild(status);
   const live = { kind: 'code', lang: kind === 'diagram' ? 'mermaid' : 'html', code: '', name: kind === 'diagram' ? 'diagram.mmd' : 'mockup.html' };
-  current = live; $('pname').textContent = t(kind === 'diagram' ? 'diagramMaking' : 'mockupMaking'); $('tabs').style.visibility = 'visible'; showTab('code');
+  current = live; $('pname').textContent = t(kind === 'diagram' ? 'diagramMaking' : 'mockupMaking'); $('tabs').style.visibility = 'visible';
+  $('tabRun').disabled = kind === 'diagram';   // partial Mermaid does not render; partial HTML does
+  showTab('code');
   document.body.classList.add('panel-open');
-  let text = '';
+  let text = '', switched = false, lastPaint = 0, paintTimer = null;
+  // live preview: re-render the partial page at most every 1.2 s while it streams (like Claude artifacts)
+  const paint = () => { paintTimer = null; lastPaint = Date.now(); if (current === live && $('tabRun').classList.contains('on')) showTab('run'); };
   await stream({ mode: 'mockup', kind, idea: `User: ${question}\n\nAssistant: ${answer}` }, ev => {
-    if (ev.type === 'token') { text += ev.text; live.code = text; const c = $('pbody').querySelector('code'); if (c) { c.textContent = text; c.parentElement.scrollTop = 1e9; } }
+    if (ev.type !== 'token') return;
+    text += ev.text; live.code = fenceBody(text);
+    if (current !== live) return;   // user opened another result meanwhile
+    if (kind === 'ui' && !switched && /<body|<main|<div/i.test(live.code)) { switched = true; showTab('run'); return; }
+    if ($('tabRun').classList.contains('on')) { if (!paintTimer) paintTimer = setTimeout(paint, Math.max(0, 1200 - (Date.now() - lastPaint))); }
+    else { const c = $('pbody').querySelector('code'); if (c) { c.textContent = live.code; c.parentElement.scrollTop = 1e9; } }
   }, busy.signal);
+  clearTimeout(paintTimer);
   const block = blocksOf(text).find(b => b.lang === live.lang) || blocksOf(text)[0];
   status.remove();
   if (!block) return;

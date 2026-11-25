@@ -15,6 +15,7 @@ import hashlib
 import json
 import random
 import re
+import sys
 from pathlib import Path
 
 from datasets import load_dataset
@@ -36,12 +37,13 @@ def pairs(user, assistant):
 
 SOURCES = [
     # name, hf id, config, target count, row -> messages
-    ("code_evol", "ise-uiuc/Magicoder-Evol-Instruct-110K", None, 2500, lambda r: pairs(r["instruction"], r["response"])),
-    ("code_oss", "bigcode/self-oss-instruct-sc2-exec-filter-50k", None, 1500, lambda r: pairs(r["instruction"], r["response"])),
-    # round 2: smaller general sets so the model drifts less from its base (round 1 lost 13 pts GSM8K, 22 pts ARC)
-    ("follow", "allenai/tulu-3-sft-personas-instruction-following", None, 1000, lambda r: r["messages"]),
-    ("math", "meta-math/MetaMathQA", None, 600, lambda r: pairs(r["query"], r["response"])),
-    ("thai", "airesearch/WangchanThaiInstruct", None, 1500,
+    # round 2: about half of round 1 (~7.5k rows, ~2 h on the 4060 Ti) and lighter on general sets so the model drifts
+    # less from its base (round 1 lost 13 pts GSM8K, 22 pts ARC)
+    ("code_evol", "ise-uiuc/Magicoder-Evol-Instruct-110K", None, 1500, lambda r: pairs(r["instruction"], r["response"])),
+    ("code_oss", "bigcode/self-oss-instruct-sc2-exec-filter-50k", None, 800, lambda r: pairs(r["instruction"], r["response"])),
+    ("follow", "allenai/tulu-3-sft-personas-instruction-following", None, 600, lambda r: r["messages"]),
+    ("math", "meta-math/MetaMathQA", None, 300, lambda r: pairs(r["query"], r["response"])),
+    ("thai", "airesearch/WangchanThaiInstruct", None, 1000,
      lambda r: pairs(r["Instruction"] + ("\n\n" + r["Input"] if r.get("Input") else ""), r["Output"])),
 ]
 
@@ -172,12 +174,12 @@ def tool_rows(config, want, seen):
 SKILL_TOPICS = {
     "design": (re.compile(r"\b(UI|UX|user interface|user experience|wireframe|mock-?up|landing page|colou?r palette|"
                           r"typography|figma|responsive (web )?design|design system|accessibility|WCAG|CSS|tailwind|"
-                          r"layout|visual hierarchy|style ?guide|prototype)\b", re.I), 500),
+                          r"layout|visual hierarchy|style ?guide|prototype)\b", re.I), 300),
     "sysanalysis": (re.compile(r"(system design|software architecture|architecture (diagram|pattern)|microservice|"
                                r"requirements? (specification|analysis|document)|use[- ]case|\bUML\b|ER diagram|"
                                r"entity[- ]relationship|data flow diagram|sequence diagram|scalab|load balanc|"
                                r"database schema|API design|non-functional|SRS\b|system analys|business process|"
-                               r"domain model|event[- ]driven|message queue|high availability)", re.I), 500),
+                               r"domain model|event[- ]driven|message queue|high availability)", re.I), 300),
 }
 
 
@@ -217,7 +219,7 @@ def multilingual_rows(seen):
     rows = []
     for r in load_dataset("CohereLabs/aya_dataset", split="train", streaming=True):
         lang = r.get("language")
-        if lang not in AYA_LANGS or got[lang] >= AYA_LANGS[lang]:
+        if lang not in AYA_LANGS or got[lang] >= AYA_LANGS[lang] // 2:
             continue
         msgs = pairs(r["inputs"], r["targets"])
         key = hashlib.sha1(msgs[0]["content"].encode()).hexdigest()
@@ -226,7 +228,7 @@ def multilingual_rows(seen):
         seen.add(key)
         rows.append({"messages": msgs, "tools": "", "src": "lang_" + lang})
         got[lang] += 1
-        if all(got[k] >= AYA_LANGS[k] for k in AYA_LANGS):
+        if all(got[k] >= AYA_LANGS[k] // 2 for k in AYA_LANGS):
             break
     return rows, got
 
@@ -244,7 +246,7 @@ def main():
     got, stats["skills"] = skill_rows(seen)
     rows += got
     print("skills", stats["skills"], flush=True)
-    for cfg, want in (("func_calling_singleturn", 700), ("func_calling", 700)):
+    for cfg, want in (("func_calling_singleturn", 400), ("func_calling", 400)):
         got, stats["tools_" + cfg] = tool_rows(cfg, want, seen)
         rows += got
         print("tools_" + cfg, stats["tools_" + cfg], flush=True)
@@ -281,3 +283,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # streaming `datasets` leaves a background thread that can abort the interpreter at shutdown
+    # ("PyGILState_Release ... finalizing", core dump) after mix.jsonl is complete; skip the finalizer.
+    sys.stdout.flush()
+    os._exit(0)
