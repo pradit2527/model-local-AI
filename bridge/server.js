@@ -394,6 +394,7 @@ async function generateMedia(kind, text, { quality = 'fast', image, enhance = tr
 
 // ---------- automatic model routing ("all-in-one") ----------
 const RX_VIDEO = /(สร้าง|ทำ|เจน|gen(erate)?|make|create|render|animate).{0,25}(วิดีโอ|วีดีโอ|วิดิโอ|คลิป|video|clip|animation|อนิเมชัน)|(วิดีโอ|วีดีโอ|video|clip)\s*(ของ|of|showing)/i;
+const RX_SOFTWARE = /ระบบ|โปรเจ[กค]|เว็บ|แอป|แอพ|เครื่องมือ|ฟีเจอร์|ฐานข้อมูล|สถาปัตยกรรม|หน้าจอ|ออกแบบ(ระบบ|โปรแกรม|เว็บ|แอป|ui|ux)|\b(app|apps|application|website|web ?app|system|platform|tool|feature|architecture|backend|frontend|api|database|ui|ux|saas|mvp|prototype|generator|pipeline|workflow)\b/i;
 const RX_IMAGE = /(สร้าง|วาด|ทำ|เจน|gen(erate)?|draw|make|create|paint|render|design).{0,25}(รูปภาพ|ภาพ|รูป(?!แบบ)|image|picture|photo|illustration|poster|โปสเตอร์|wallpaper|artwork)/i;
 const RX_CODE = /```|\b(code|coding|function|class|bug|debug|error|exception|html|css|javascript|typescript|python|react|next\.?js|node|api|sql|regex|script|component|vibe ?cod\w*|deploy)\b|โค้ด|โคด|เขียนโปรแกรม|เขียนเว็บ|ทำเว็บ|แอป/i;
 
@@ -408,8 +409,12 @@ function routeRequest({ text, hasImage, skills = [], mode, models, language }) {
   const pick = list => list.find(have);
   // absolute-ai v2 is the general default: GSM8K 74 / ARC 68 (base 76 / 71, within n=100 noise), Thai 26 vs 18, HumanEval 52.4 vs 42.7
   const general = ['absolute-ai', 'dan-l3-r1-8b', 'dan-qwen3'].find(have);
-  if (mode === 'video' || (mode === 'auto' && RX_VIDEO.test(text))) return { kind: 'video' };
-  if (mode === 'image' || (mode === 'auto' && !hasImage && RX_IMAGE.test(text))) return { kind: 'image' };
+  // Auto mode makes a picture/video only for a short, direct media request. "Build a web app for an image-to-video
+  // generator" mentions video but asks for software: it produced a video instead of code.
+  const mediaOk = mode === 'auto' && !skills.some(s => CODE_SKILLS.has(s) || s === 'system-analysis')
+    && text.length < 400 && !RX_SOFTWARE.test(text) && !RX_CODE.test(text);
+  if (mode === 'video' || (mediaOk && RX_VIDEO.test(text))) return { kind: 'video' };
+  if (mode === 'image' || (mediaOk && !hasImage && RX_IMAGE.test(text))) return { kind: 'image' };
   if (hasImage && pick(VISION)) return { kind: 'chat', model: pick(VISION), why: 'มีรูปแนบ' };
   if ((skills.some(s => CODE_SKILLS.has(s)) || RX_CODE.test(text)) && pick(CODER)) return { kind: 'chat', model: pick(CODER), why: 'งานโค้ด' };
   const letters = Math.max(1, text.replace(/[\s\d\p{P}]/gu, '').length);
@@ -576,7 +581,9 @@ async function handleChat(req, res) {
     const think = thinking ? { think: !!accurate } : {};
     // qwen3.6 writes long design documents (7k+ Thai chars) and does not loop like the 8B models, so it gets more room
     // num_ctx: system prompt + skills + ~25 tool schemas alone are ~4k tokens, above some models' 4096 default (typhoon)
-    const options = { num_ctx: 12288, num_predict: thinking ? (accurate ? 16000 : 10000) : 4096, ...(accurate ? { temperature: 0.2, top_p: 0.9 } : {}) };
+    // qwen3.6 (MoE, small KV cache) does the long design/code threads, which outgrew 12k and lost their start
+    // ("you didn't say what the screen is for" right after a long border-toll design)
+    const options = { num_ctx: model.startsWith('qwen3.6') ? 32768 : 12288, num_predict: thinking ? (accurate ? 16000 : 10000) : 4096, ...(accurate ? { temperature: 0.2, top_p: 0.9 } : {}) };
     for (let round = 0; round < 8; round++) {
       const r = await fetch(`${OLLAMA}/api/chat`, {
         method: 'POST', signal: abort.signal,
